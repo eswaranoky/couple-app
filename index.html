@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Private Space 💖</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- PWA Manifest Link -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ff4757">
+</head>
+<body>
+
+  <!-- Top Banner for App Download -->
+  <div id="install-banner" class="install-banner hidden">
+    <span>📲 Download our app for quick access!</span>
+    <button id="install-btn">Install App</button>
+  </div>
+
+  <div class="app-container">
+
+    <!-- SCREEN 1: User Login -->
+    <div id="screen-login" class="screen active">
+      <h2>Welcome 💖</h2>
+      <p class="subtitle">Enter your login details</p>
+      <input type="text" id="my-username" placeholder="Your Username">
+      <input type="password" id="my-password" placeholder="Your Password">
+      <button onclick="goToPartnerLink()">Next ➔</button>
+    </div>
+
+    <!-- SCREEN 2: Partner Link (Two Keys, One Lock) -->
+    <div id="screen-partner" class="screen">
+      <h2>Congrats! Step 1 Done 🎉</h2>
+      <p class="subtitle">Enter your partner's credentials to unlock your chat room.</p>
+      <input type="text" id="partner-username" placeholder="Partner's Username">
+      <input type="password" id="partner-password" placeholder="Partner's Password">
+      <button onclick="unlockChat()">Unlock Private Room 🔐</button>
+    </div>
+
+    <!-- SCREEN 3: Private Chat Room -->
+    <div id="screen-chat" class="screen">
+      <div class="chat-header">
+        <h3>Our Private Room 💖</h3>
+      </div>
+      <div class="chat-messages" id="chat-box">
+        <div class="message partner">Hey love! Welcome to our private space.</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="msg-input" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 1. Navigation Logic between screens
+    function goToPartnerLink() {
+      const user = document.getElementById('my-username').value;
+      const pass = document.getElementById('my-password').value;
+      if (user && pass) {
+        document.getElementById('screen-login').classList.remove('active');
+        document.getElementById('screen-partner').classList.add('active');
+      } else {
+        alert("Please enter your username and password!");
+      }
+    }
+
+    function unlockChat() {
+      const pUser = document.getElementById('partner-username').value;
+      const pPass = document.getElementById('partner-password').value;
+      if (pUser && pPass) {
+        document.getElementById('screen-partner').classList.remove('active');
+        document.getElementById('screen-chat').classList.add('active');
+      } else {
+        alert("Please enter partner details to verify!");
+      }
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('msg-input');
+      if (input.value.trim() !== "") {
+        const chatBox = document.getElementById('chat-box');
+        const newMsg = document.createElement('div');
+        newMsg.className = 'message me';
+        newMsg.innerText = input.value;
+        chatBox.appendChild(newMsg);
+        input.value = "";
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }
+
+    // 2. PWA App Download Prompt Logic
+    let deferredPrompt;
+    const installBanner = document.getElementById('install-banner');
+    const installBtn = document.getElementById('install-btn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBanner.classList.remove('hidden'); // Show download banner
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          console.log('User installed the app!');
+        }
+        deferredPrompt = null;
+        installBanner.classList.add('hidden');
+      }
+    });
+
+    // 3. Service Worker Register
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
