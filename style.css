@@ -3,6 +3,7 @@
   padding: 0;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
 }
 
 body {
@@ -99,7 +100,6 @@ body {
   align-items: center;
 }
 
-/* THREE DOT MENU DROPDOWN */
 .menu-dropdown {
   position: absolute;
   top: 50px;
@@ -164,13 +164,14 @@ body {
   text-transform: uppercase;
 }
 
-.chat-card, .user-item {
+.chat-card {
   display: flex;
   align-items: center;
   padding: 12px 16px;
   gap: 15px;
   border-bottom: 1px solid #222d34;
   cursor: pointer;
+  position: relative;
 }
 
 .chat-card img {
@@ -178,6 +179,14 @@ body {
   height: 45px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.chat-badges {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #8696a0;
+  margin-top: 4px;
 }
 
 .user-status-text {
@@ -267,7 +276,7 @@ body {
   cursor: pointer;
 }
 
-/* MODALS (PROFILE VIEW & COLOR PICKER) */
+/* MODALS & ACTION SHEETS */
 .custom-modal {
   position: fixed;
   top: 0;
@@ -301,23 +310,65 @@ body {
   border: 3px solid #00a884;
 }
 
-.color-options {
+/* CUSTOM COLOR PICKER STYLES */
+.custom-picker-box {
   display: flex;
-  gap: 15px;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   margin: 20px 0;
-  flex-wrap: wrap;
 }
 
-.color-box {
-  width: 40px;
-  height: 40px;
+.color-input-picker {
+  width: 70px;
+  height: 70px;
+  border: none;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid white;
+  background: transparent;
 }
 
-/* REAL-TIME VIDEO CALL MODAL */
+.color-input-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-input-picker::-webkit-color-swatch {
+  border: 2px solid #00a884;
+  border-radius: 50%;
+}
+
+/* ACTION SHEET FOR LONG PRESS */
+.action-sheet-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  background: #233138;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  z-index: 10001;
+  padding: 10px 0;
+}
+
+.action-sheet-item {
+  padding: 14px 20px;
+  font-size: 15px;
+  color: #e9edef;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+}
+
+.action-sheet-item:hover {
+  background-color: #182229;
+}
+
+.action-sheet-item.danger {
+  color: #ea4335;
+}
+
+/* CALL MODAL */
 #call-modal {
   position: fixed;
   top: 0;
@@ -337,7 +388,6 @@ body {
   left: 20px;
   z-index: 100;
   color: #fff;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 .video-container {
@@ -392,10 +442,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.call-btn-circle.off {
-  background: #ea4335;
 }
 
 .call-btn-end {

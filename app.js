@@ -19,6 +19,9 @@ let currentActivePartner = "";
 let activePartnerData = null;
 let activeRoomId = "";
 
+let selectedChatPartner = ""; // Long press selected user
+let longPressTimer = null;
+
 // PEERJS WEBRTC CALL ENGINE
 let peer = null;
 let localStream = null;
@@ -50,25 +53,16 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-// PRESENCE SYSTEM (APP-IL IRUKUM PODHU MATTUM ONLINE)
 function setupPresenceSystem() {
-  window.addEventListener('beforeunload', () => {
-    setUserOffline();
-  });
-
+  window.addEventListener('beforeunload', () => { setUserOffline(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      setUserOnline();
-    } else {
-      setUserOffline();
-    }
+    if (document.visibilityState === 'visible') setUserOnline();
+    else setUserOffline();
   });
 }
 
 function setUserOnline() {
-  if (currentUserEmail) {
-    db.collection('users').doc(currentUserEmail).update({ isOnline: true });
-  }
+  if (currentUserEmail) db.collection('users').doc(currentUserEmail).update({ isOnline: true });
 }
 
 function setUserOffline() {
@@ -95,20 +89,15 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. HOME MENU & CHATS LIST
+// 2. HOME & CHATS LIST
 function openHome() {
   closeAllMenus();
   showScreen('screen-home');
   listenAcceptedChats();
 }
 
-function toggleHomeMenu() {
-  document.getElementById('home-menu').classList.toggle('hidden');
-}
-
-function toggleChatMenu() {
-  document.getElementById('chat-menu').classList.toggle('hidden');
-}
+function toggleHomeMenu() { document.getElementById('home-menu').classList.toggle('hidden'); }
+function toggleChatMenu() { document.getElementById('chat-menu').classList.toggle('hidden'); }
 
 function closeAllMenus() {
   const hm = document.getElementById('home-menu');
@@ -136,9 +125,9 @@ function searchUser() {
         if (u.email === currentUserEmail) return;
 
         const div = document.createElement('div');
-        div.className = 'user-item';
+        div.className = 'chat-card';
         div.innerHTML = `
-          <span>${u.email}</span>
+          <span style="flex:1;">${u.email}</span>
           <button onclick="startNewChat('${u.email}')" style="background:#00a884; color:white; border:none; padding:6px 14px; border-radius:15px; cursor:pointer;">Message</button>
         `;
         resultsDiv.appendChild(div);
@@ -172,29 +161,116 @@ function listenAcceptedChats() {
           db.collection('users').doc(partner).onSnapshot(pDoc => {
             const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', isOnline: false };
             
-            let existingCard = document.getElementById(`card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`);
-            if (!existingCard) {
-              existingCard = document.createElement('div');
-              existingCard.id = `card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`;
-              existingCard.className = 'chat-card';
-              chatList.appendChild(existingCard);
+            let card = document.getElementById(`card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`);
+            if (!card) {
+              card = document.createElement('div');
+              card.id = `card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`;
+              card.className = 'chat-card';
+              chatList.appendChild(card);
             }
 
-            existingCard.onclick = () => openChatRoom(partner, pData);
-            existingCard.innerHTML = `
+            // CHECK LOCAL STORAGE FOR BADGES (PIN, STAR, MUTE, BLOCK)
+            const isPinned = localStorage.getItem(`pin_${partner}`) === 'true';
+            const isStarred = localStorage.getItem(`star_${partner}`) === 'true';
+            const isMuted = localStorage.getItem(`mute_${partner}`) === 'true';
+            const isBlocked = localStorage.getItem(`block_${partner}`) === 'true';
+
+            let badgesHtml = '';
+            if (isPinned) badgesHtml += `<i class="fa-solid fa-thumbtack" style="color:#00a884;"></i>`;
+            if (isStarred) badgesHtml += `<i class="fa-solid fa-star" style="color:#eac54f;"></i>`;
+            if (isMuted) badgesHtml += `<i class="fa-solid fa-volume-xmark"></i>`;
+            if (isBlocked) badgesHtml += `<i class="fa-solid fa-ban" style="color:#ea4335;"></i>`;
+
+            card.innerHTML = `
               <img src="${pData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
               <div style="flex:1;">
                 <b style="font-size:15px;">${pData.displayName || partner.split('@')[0]}</b>
                 <p class="user-status-text ${pData.isOnline ? 'online' : 'offline'}">${pData.isOnline ? 'Online' : 'Offline'}</p>
               </div>
+              <div class="chat-badges">${badgesHtml}</div>
             `;
+
+            // LONG PRESS HANDLERS FOR MOBILE & DESKTOP
+            card.onmousedown = () => startLongPress(partner);
+            card.onmouseup = () => cancelLongPress();
+            card.ontouchstart = () => startLongPress(partner);
+            card.ontouchend = () => cancelLongPress();
+
+            card.onclick = () => {
+              if (!card.dataset.longpressed) {
+                openChatRoom(partner, pData);
+              }
+              delete card.dataset.longpressed;
+            };
           });
         }
       });
     });
 }
 
-// 3. CHAT ROOM & MESSAGES
+// 3. LONG PRESS ACTION SHEET LOGIC
+function startLongPress(partner) {
+  longPressTimer = setTimeout(() => {
+    selectedChatPartner = partner;
+    const card = document.getElementById(`card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`);
+    if (card) card.dataset.longpressed = "true";
+
+    // UPDATE ACTION TEXTS ACCORDING TO STATE
+    document.getElementById('pin-text').innerText = localStorage.getItem(`pin_${partner}`) === 'true' ? "Unpin Chat" : "Pin Chat";
+    document.getElementById('star-text').innerText = localStorage.getItem(`star_${partner}`) === 'true' ? "Unstar Chat" : "Star Chat";
+    document.getElementById('mute-text').innerText = localStorage.getItem(`mute_${partner}`) === 'true' ? "Unmute Notifications" : "Mute Notifications";
+    document.getElementById('block-text').innerText = localStorage.getItem(`block_${partner}`) === 'true' ? "Unblock Contact" : "Block Contact";
+
+    document.getElementById('action-sheet').classList.remove('hidden');
+  }, 600); // 600ms Press
+}
+
+function cancelLongPress() {
+  clearTimeout(longPressTimer);
+}
+
+function togglePinChat() {
+  const cur = localStorage.getItem(`pin_${selectedChatPartner}`) === 'true';
+  localStorage.setItem(`pin_${selectedChatPartner}`, !cur);
+  closeModal('action-sheet');
+  listenAcceptedChats();
+}
+
+function toggleStarChat() {
+  const cur = localStorage.getItem(`star_${selectedChatPartner}`) === 'true';
+  localStorage.setItem(`star_${selectedChatPartner}`, !cur);
+  closeModal('action-sheet');
+  listenAcceptedChats();
+}
+
+function toggleMuteChat() {
+  const cur = localStorage.getItem(`mute_${selectedChatPartner}`) === 'true';
+  localStorage.setItem(`mute_${selectedChatPartner}`, !cur);
+  closeModal('action-sheet');
+  listenAcceptedChats();
+}
+
+function toggleBlockUser() {
+  const cur = localStorage.getItem(`block_${selectedChatPartner}`) === 'true';
+  localStorage.setItem(`block_${selectedChatPartner}`, !cur);
+  closeModal('action-sheet');
+  listenAcceptedChats();
+}
+
+function deleteChatRoom() {
+  if (confirm("Delete this chat and room history?")) {
+    const ids = [currentUserEmail, selectedChatPartner].sort();
+    const roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
+
+    db.collection('chats').doc(`${currentUserEmail}_${selectedChatPartner}`).delete();
+    db.collection('chats').doc(`${selectedChatPartner}_${currentUserEmail}`).delete();
+    
+    closeModal('action-sheet');
+    listenAcceptedChats();
+  }
+}
+
+// 4. CHAT ROOM & MESSAGES
 function openChatRoom(partner, partnerData) {
   closeAllMenus();
   currentActivePartner = partner;
@@ -206,7 +282,6 @@ function openChatRoom(partner, partnerData) {
   document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
   document.getElementById('chat-header-avatar').src = partnerData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-  // REALTIME ONLINE STATUS MONITOR IN CHAT ROOM
   db.collection('users').doc(partner).onSnapshot(doc => {
     if (doc.exists) {
       const data = doc.data();
@@ -221,15 +296,15 @@ function openChatRoom(partner, partnerData) {
     }
   });
 
-  // LOAD USER COLOR PREFERENCE FOR THIS CHAT
   const savedBgColor = localStorage.getItem(`chat_bg_${activeRoomId}`);
   if (savedBgColor) {
     document.getElementById('chat-box').style.backgroundColor = savedBgColor;
+    document.getElementById('chat-color-input').value = savedBgColor;
   } else {
     document.getElementById('chat-box').style.backgroundColor = '#0b141a';
+    document.getElementById('chat-color-input').value = '#0b141a';
   }
 
-  // LISTEN MESSAGES
   db.collection('rooms').doc(activeRoomId).collection('messages')
     .orderBy('timestamp', 'asc')
     .onSnapshot((snapshot) => {
@@ -306,23 +381,20 @@ function renderMessage(msg, msgId) {
   chatBox.appendChild(div);
 }
 
-// 4. CHAT COLOR CHANGE & PROFILE MODAL
+// 5. CUSTOM COLOR PICKER & PROFILE MODALS
 function openColorPicker() {
   closeAllMenus();
   document.getElementById('color-modal').classList.remove('hidden');
 }
 
-function setChatBgColor(color) {
-  document.getElementById('chat-box').style.backgroundColor = color;
-  localStorage.setItem(`chat_bg_${activeRoomId}`, color);
-  closeModal('color-modal');
+function applyCustomColor(colorHex) {
+  document.getElementById('chat-box').style.backgroundColor = colorHex;
+  localStorage.setItem(`chat_bg_${activeRoomId}`, colorHex);
 }
 
 function openActivePartnerProfile() {
   closeAllMenus();
-  if (activePartnerData) {
-    openProfileView(activePartnerData);
-  }
+  if (activePartnerData) openProfileView(activePartnerData);
 }
 
 function openProfileView(userData) {
@@ -337,7 +409,7 @@ function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-// 5. CALL ENGINE (PEERJS)
+// 6. CALL ENGINE (PEERJS)
 function initPeerJS() {
   const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   peer = new Peer(myPeerId);

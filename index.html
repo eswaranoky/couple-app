@@ -24,14 +24,13 @@
       </div>
     </div>
 
-    <!-- SCREEN 2: HOME SCREEN (CHATS ONLY - STATUS REMOVED) -->
+    <!-- SCREEN 2: HOME SCREEN -->
     <div id="screen-home" class="screen">
       <div class="chat-header">
         <h3>WhatsApp</h3>
         <div class="header-actions">
           <i class="fa-solid fa-ellipsis-vertical" onclick="toggleHomeMenu()"></i>
         </div>
-        <!-- HOME THREE DOT MENU -->
         <div id="home-menu" class="menu-dropdown hidden">
           <div class="menu-item" onclick="openProfileView(currentUserData)"><i class="fa-solid fa-user"></i> My Profile</div>
           <div class="menu-item" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
@@ -52,7 +51,7 @@
       </div>
     </div>
 
-    <!-- SCREEN 3: INDIVIDUAL CHAT ROOM -->
+    <!-- SCREEN 3: CHAT ROOM -->
     <div id="screen-chat" class="screen">
       <div class="chat-header">
         <div class="user-info" style="display:flex; align-items:center; gap:10px;">
@@ -68,17 +67,14 @@
           <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
           <i class="fa-solid fa-ellipsis-vertical" onclick="toggleChatMenu()"></i>
         </div>
-        <!-- CHAT THREE DOT MENU -->
         <div id="chat-menu" class="menu-dropdown hidden">
           <div class="menu-item" onclick="openActivePartnerProfile()"><i class="fa-solid fa-id-card"></i> View Profile</div>
-          <div class="menu-item" onclick="openColorPicker()"><i class="fa-solid fa-palette"></i> Chat Theme Color</div>
+          <div class="menu-item" onclick="openColorPicker()"><i class="fa-solid fa-palette"></i> Custom Chat Color</div>
         </div>
       </div>
 
-      <!-- MESSAGES DISPLAY AREA -->
       <div class="chat-messages" id="chat-box"></div>
 
-      <!-- INPUT AREA -->
       <div class="chat-input-area">
         <label for="img-attach" class="attach-btn" title="Send Image">
           <i class="fa-solid fa-paperclip"></i>
@@ -102,22 +98,30 @@
       </div>
     </div>
 
-    <!-- MODAL 2: CHAT WALLPAPER COLOR PICKER -->
+    <!-- MODAL 2: CUSTOM COLOR PICKER -->
     <div id="color-modal" class="custom-modal hidden">
       <div class="modal-content">
         <i class="fa-solid fa-xmark" onclick="closeModal('color-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
-        <h3>Choose Chat Color</h3>
-        <div class="color-options">
-          <div class="color-box" style="background:#0b141a;" onclick="setChatBgColor('#0b141a')"></div>
-          <div class="color-box" style="background:#1a232a;" onclick="setChatBgColor('#1a232a')"></div>
-          <div class="color-box" style="background:#0f2027;" onclick="setChatBgColor('#0f2027')"></div>
-          <div class="color-box" style="background:#1e1b18;" onclick="setChatBgColor('#1e1b18')"></div>
-          <div class="color-box" style="background:#28161c;" onclick="setChatBgColor('#28161c')"></div>
+        <h3>Pick Any Color</h3>
+        <p style="font-size:12px; color:#8696a0; margin-top:5px;">Select your custom background color</p>
+        <div class="custom-picker-box">
+          <input type="color" id="chat-color-input" class="color-input-picker" value="#0b141a" onchange="applyCustomColor(this.value)">
         </div>
       </div>
     </div>
 
-    <!-- REAL-TIME VIDEO CALL MODAL -->
+    <!-- LONG PRESS CHAT ACTION SHEET -->
+    <div id="action-sheet" class="custom-modal hidden" onclick="closeModal('action-sheet')">
+      <div class="action-sheet-modal" onclick="event.stopPropagation()">
+        <div class="action-sheet-item" onclick="togglePinChat()"><i class="fa-solid fa-thumbtack"></i> <span id="pin-text">Pin Chat</span></div>
+        <div class="action-sheet-item" onclick="toggleStarChat()"><i class="fa-solid fa-star"></i> <span id="star-text">Star Chat</span></div>
+        <div class="action-sheet-item" onclick="toggleMuteChat()"><i class="fa-solid fa-volume-xmark"></i> <span id="mute-text">Mute Notifications</span></div>
+        <div class="action-sheet-item" onclick="toggleBlockUser()"><i class="fa-solid fa-ban"></i> <span id="block-text">Block Contact</span></div>
+        <div class="action-sheet-item danger" onclick="deleteChatRoom()"><i class="fa-solid fa-trash"></i> Delete Chat</div>
+      </div>
+    </div>
+
+    <!-- CALL MODAL -->
     <div id="call-modal" class="hidden">
       <div class="call-header-overlay">
         <h4 id="call-partner-name">User Name</h4>
