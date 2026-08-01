@@ -83,7 +83,7 @@
       <!-- TAB 2: STATUS VIEW -->
       <div id="tab-status-content" class="tab-content hidden">
         <div class="status-section">
-          <!-- MY STATUS BAR -->
+          <!-- MY STATUS CARD -->
           <div class="my-status-card">
             <div class="status-avatar-wrapper" onclick="triggerMyStatusAction()">
               <img id="my-status-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="My Status">
@@ -98,7 +98,9 @@
                 <i class="fa-solid fa-camera"></i>
               </label>
               <input type="file" id="status-file-input" accept="image/*" style="display:none;" onchange="uploadStatusPhoto(event)">
-              <i class="fa-solid fa-pen status-icon-btn" onclick="promptTextStatus()" title="Add Text Status"></i>
+              
+              <!-- SONG / TEXT STATUS ICON -->
+              <i class="fa-solid fa-music status-icon-btn" onclick="openAudioTextStatusModal()" title="Add Text with Song Status"></i>
             </div>
           </div>
 
@@ -180,6 +182,26 @@
         </div>
 
         <button id="save-settings-btn" onclick="saveSettings()">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- AUDIO + TEXT STATUS CREATOR MODAL -->
+    <div id="audio-status-modal" class="modal hidden">
+      <div class="modal-header">
+        <span style="color:white; font-weight:bold;">Create Music / Text Status</span>
+        <span class="close-modal" onclick="closeAudioStatusModal()">&times;</span>
+      </div>
+      <div class="modal-body" style="flex-direction: column; gap: 15px; padding: 20px; background:#1e272e;">
+        <input type="text" id="status-song-text" placeholder="Type status quote / text..." style="width:100%; padding:12px; border-radius:8px; border:none; outline:none; font-size:16px;">
+        
+        <div style="width:100%; color:white; font-size:13px;">
+          <label style="display:block; margin-bottom:5px;"><i class="fa-solid fa-music"></i> Choose Background Song (Optional MP3):</label>
+          <input type="file" id="status-audio-input" accept="audio/*" style="color:white; width:100%;">
+        </div>
+
+        <button onclick="saveAudioTextStatus()" style="background:#25d366; color:white; border:none; padding:12px 25px; border-radius:20px; font-weight:bold; cursor:pointer; width:100%;">
+          Post Status
+        </button>
       </div>
     </div>
 

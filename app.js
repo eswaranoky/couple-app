@@ -19,6 +19,7 @@ let activeRoomId = "";
 let currentViewImgUrl = "";
 let deferredPrompt;
 let currentMyStatusDocId = null;
+let currentStatusAudio = null;
 
 // HARDWARE BACK BUTTON HANDLER TO PREVENT EXITING APP ON BACK TAP
 window.onpopstate = function(event) {
@@ -313,7 +314,7 @@ function sendViewOnceMessage(e) {
   });
 }
 
-// 5. STATUS LOGIC (UPLOAD, VIEW, DELETE)
+// 5. STATUS LOGIC (UPLOAD, VIEW, DELETE, AUDIO SONG STATUS)
 function uploadStatusPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -323,6 +324,7 @@ function uploadStatusPhoto(e) {
       userEmail: currentUserEmail,
       type: 'image',
       content: compressedUrl,
+      audioUrl: '',
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
       alert("Status uploaded!");
@@ -330,16 +332,50 @@ function uploadStatusPhoto(e) {
   });
 }
 
-function promptTextStatus() {
-  const text = prompt("Write status update:");
-  if (text && text.trim() !== "") {
+function openAudioTextStatusModal() {
+  document.getElementById('audio-status-modal').classList.remove('hidden');
+}
+
+function closeAudioStatusModal() {
+  document.getElementById('audio-status-modal').classList.add('hidden');
+}
+
+function saveAudioTextStatus() {
+  const textVal = document.getElementById('status-song-text').value.trim();
+  const audioFile = document.getElementById('status-audio-input').files[0];
+
+  if (!textVal) {
+    alert("Please enter some text!");
+    return;
+  }
+
+  if (audioFile) {
+    const reader = new FileReader();
+    reader.readAsDataURL(audioFile);
+    reader.onload = function (e) {
+      const audioData = e.target.result;
+      
+      db.collection('statuses').doc(currentUserEmail).set({
+        userEmail: currentUserEmail,
+        type: 'audio_text',
+        content: textVal,
+        audioUrl: audioData,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        closeAudioStatusModal();
+        alert("Status posted with Song! 🎵");
+      });
+    };
+  } else {
     db.collection('statuses').doc(currentUserEmail).set({
       userEmail: currentUserEmail,
       type: 'text',
-      content: text.trim(),
+      content: textVal,
+      audioUrl: '',
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
-      alert("Status updated!");
+      closeAudioStatusModal();
+      alert("Status posted!");
     });
   }
 }
@@ -372,12 +408,12 @@ function listenStatuses() {
           const u = uDoc.exists ? uDoc.data() : { displayName: s.userEmail.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
           const card = document.createElement('div');
           card.className = 'status-item-card';
-          card.onclick = () => viewStatusModal(u.displayName, u.photoURL, s.type, s.content, false);
+          card.onclick = () => viewStatusModal(u.displayName, u.photoURL, s.type, s.content, false, s.audioUrl || '');
           card.innerHTML = `
             <img src="${u.photoURL}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
             <div>
               <b>${u.displayName || s.userEmail.split('@')[0]}</b>
-              <p style="font-size:12px; color:#666;">Tap to view status</p>
+              <p style="font-size:12px; color:#666;">${s.audioUrl ? '🎵 Music Status' : 'Tap to view status'}</p>
             </div>
           `;
           list.appendChild(card);
@@ -394,21 +430,26 @@ function triggerMyStatusAction() {
         const s = doc.data();
         db.collection('users').doc(currentUserEmail).get().then(uDoc => {
           const u = uDoc.data();
-          viewStatusModal("My Status", u.photoURL, s.type, s.content, true);
+          viewStatusModal("My Status", u.photoURL, s.type, s.content, true, s.audioUrl || '');
         });
       }
     });
   } else {
-    document.getElementById('status-file-input').click();
+    openAudioTextStatusModal();
   }
 }
 
-function viewStatusModal(name, avatar, type, content, isOwner) {
+function viewStatusModal(name, avatar, type, content, isOwner, audioUrl) {
   document.getElementById('status-user-name').innerText = name;
   document.getElementById('status-user-avatar').src = avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
   const imgElem = document.getElementById('status-img-display');
   const txtElem = document.getElementById('status-text-display');
+
+  if (currentStatusAudio) {
+    currentStatusAudio.pause();
+    currentStatusAudio = null;
+  }
 
   if (type === 'image') {
     imgElem.src = content;
@@ -418,6 +459,11 @@ function viewStatusModal(name, avatar, type, content, isOwner) {
     txtElem.innerText = content;
     txtElem.classList.remove('hidden');
     imgElem.classList.add('hidden');
+
+    if (audioUrl) {
+      currentStatusAudio = new Audio(audioUrl);
+      currentStatusAudio.play();
+    }
   }
 
   if (isOwner) {
@@ -429,7 +475,13 @@ function viewStatusModal(name, avatar, type, content, isOwner) {
   document.getElementById('status-viewer-modal').classList.remove('hidden');
 }
 
-function closeStatusViewer() { document.getElementById('status-viewer-modal').classList.add('hidden'); }
+function closeStatusViewer() {
+  if (currentStatusAudio) {
+    currentStatusAudio.pause();
+    currentStatusAudio = null;
+  }
+  document.getElementById('status-viewer-modal').classList.add('hidden');
+}
 
 function deleteMyStatus() {
   if (confirm("Do you want to delete your status?")) {
