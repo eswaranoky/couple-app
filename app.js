@@ -21,6 +21,11 @@ let deferredPrompt;
 let currentMyStatusDocId = null;
 let currentStatusAudio = null;
 
+// WEBRTC PEERJS GLOBAL VARIABLES
+let peer = null;
+let localStream = null;
+let currentCall = null;
+
 // HARDWARE BACK BUTTON HANDLER
 window.onpopstate = function(event) {
   const currentScreen = document.querySelector('.screen.active');
@@ -65,6 +70,9 @@ auth.onAuthStateChanged((user) => {
       }
     });
 
+    // INIT PEERJS FOR CALLS
+    initPeerJS();
+
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     if (isStandalone) { openHome(); } else { showScreen('screen-install'); }
 
@@ -85,7 +93,71 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. POP-UP NOTIFICATION PERMISSIONS
+// 2. PEERJS NATIVE WEBRTC CALL ENGINE (NO LOGIN / NO MODERATOR RESTRICTIONS)
+function initPeerJS() {
+  const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
+  peer = new Peer(myPeerId);
+
+  // LISTEN FOR INCOMING CALLS
+  peer.on('call', (call) => {
+    currentCall = call;
+    const acceptVideo = true; // Auto accept with stream
+
+    navigator.mediaDevices.getUserMedia({ video: acceptVideo, audio: true }).then((stream) => {
+      localStream = stream;
+      call.answer(stream);
+
+      document.getElementById('call-type-title').innerText = "Incoming Call Connected";
+      document.getElementById('call-modal').classList.remove('hidden');
+
+      call.on('stream', (remoteStream) => {
+        const videoElem = document.getElementById('remote-video-stream');
+        if (videoElem) videoElem.srcObject = remoteStream;
+      });
+    }).catch(err => {
+      alert("Microphone/Camera permission required!");
+    });
+  });
+}
+
+function startCall(type) {
+  if (!currentActivePartner) { alert("Please select a user to call!"); return; }
+
+  const targetPeerId = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
+  const isVideo = (type === 'video');
+
+  navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true }).then((stream) => {
+    localStream = stream;
+    document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
+    document.getElementById('call-modal').classList.remove('hidden');
+
+    const call = peer.call(targetPeerId, stream);
+    currentCall = call;
+
+    call.on('stream', (remoteStream) => {
+      const videoElem = document.getElementById('remote-video-stream');
+      if (videoElem) videoElem.srcObject = remoteStream;
+    });
+  }).catch(err => {
+    alert("Camera/Mic permission needed for call!");
+  });
+
+  showBackgroundPopUp(`Calling ${currentActivePartner.split('@')[0]}`, `Outgoing ${type} call initiated...`);
+}
+
+function endCall() {
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  if (currentCall) {
+    currentCall.close();
+    currentCall = null;
+  }
+  document.getElementById('call-modal').classList.add('hidden');
+}
+
+// 3. POP-UP NOTIFICATION PERMISSIONS
 function requestNotificationPermission() {
   if ("Notification" in window) {
     if (Notification.permission !== "granted") {
@@ -144,7 +216,7 @@ function listenIncomingMessagesGlobally() {
     });
 }
 
-// 3. HOME SCREEN & TAB SYSTEM
+// 4. HOME SCREEN & TAB SYSTEM
 function openHome() {
   showScreen('screen-home');
   requestNotificationPermission();
@@ -281,7 +353,7 @@ function listenAcceptedChats() {
     });
 }
 
-// 4. CHAT ROOM FUNCTIONALITY
+// 5. CHAT ROOM FUNCTIONALITY
 function openChatRoom(partner, partnerData) {
   currentActivePartner = partner;
   const ids = [currentUserEmail, partner].sort();
@@ -326,7 +398,7 @@ function editPartnerNickname() {
   }
 }
 
-// 5. SENDING MESSAGES
+// 6. SENDING MESSAGES
 function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
@@ -373,7 +445,7 @@ function sendViewOnceMessage(e) {
   });
 }
 
-// 6. STATUS LOGIC
+// 7. STATUS LOGIC
 function uploadStatusPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -537,38 +609,6 @@ function deleteMyStatus() {
       alert("Status deleted!");
     });
   }
-}
-
-// 7. 100% FIXED DIRECT CALL SYSTEM (BYPASSES LOGIN & QR CODE WELCOME SCREENS)
-function startCall(type) {
-  const cleanUser = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
-  const cleanPartner = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
-  
-  // Clean short room name
-  const roomHash = [cleanUser, cleanPartner].sort().join("").substring(0, 20);
-  const roomId = "coupleapp_" + roomHash;
-
-  // Jitsi Public Direct URL with prejoin bypass parameters
-  const myName = encodeURIComponent(currentUserEmail.split('@')[0]);
-  const isAudioOnly = (type === 'voice') ? '#config.startAudioOnly=true' : '';
-  
-  // Directly loads call window without QR screen / login screen
-  const fullCallUrl = `https://meet.jit.si/${roomId}#userInfo.displayName="${myName}"&config.prejoinPageEnabled=false&config.skipMeetingPassword=true${isAudioOnly}`;
-
-  document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
-  
-  const iframe = document.getElementById('jitsi-iframe');
-  iframe.src = fullCallUrl;
-  
-  document.getElementById('call-modal').classList.remove('hidden');
-
-  showBackgroundPopUp(`Calling ${currentActivePartner.split('@')[0]}`, `Outgoing ${type} call initiated...`);
-}
-
-function endCall() {
-  const iframe = document.getElementById('jitsi-iframe');
-  iframe.src = "about:blank"; // Cleanly close camera/mic stream
-  document.getElementById('call-modal').classList.add('hidden');
 }
 
 // 8. VIEW ONCE & HD PHOTO VIEWER

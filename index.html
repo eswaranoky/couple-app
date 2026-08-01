@@ -8,6 +8,8 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#075e54">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- PeerJS Direct WebRTC Library -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -99,7 +101,6 @@
               </label>
               <input type="file" id="status-file-input" accept="image/*" style="display:none;" onchange="uploadStatusPhoto(event)">
               
-              <!-- SONG / TEXT STATUS ICON -->
               <i class="fa-solid fa-music status-icon-btn" onclick="openAudioTextStatusModal()" title="Add Text with Song Status"></i>
             </div>
           </div>
@@ -136,7 +137,7 @@
 
       <div class="chat-messages" id="chat-box"></div>
 
-      <!-- INPUT AREA WITH MEDIA, VOICE, VIEW ONCE & TEXT -->
+      <!-- INPUT AREA -->
       <div class="chat-input-area">
         <label for="img-attach" class="attach-btn" title="Send Image">
           <i class="fa-solid fa-paperclip"></i>
@@ -205,7 +206,7 @@
       </div>
     </div>
 
-    <!-- STATUS VIEWER FULLSCREEN MODAL -->
+    <!-- STATUS VIEWER MODAL -->
     <div id="status-viewer-modal" class="modal hidden">
       <div class="modal-header">
         <div class="user-info">
@@ -243,14 +244,14 @@
       </div>
     </div>
 
-    <!-- CALL MODAL (DIRECT NO-LOGIN CALL) -->
+    <!-- CALL MODAL (NATIVE WEBRTC CALL WINDOW) -->
     <div id="call-modal" class="modal hidden">
       <div class="modal-header">
-        <span id="call-type-title">Call Status</span>
+        <span id="call-type-title">Call Active</span>
         <span class="close-modal" onclick="endCall()">&times;</span>
       </div>
-      <div class="modal-body call-container">
-        <iframe id="jitsi-iframe" allow="camera; microphone; display-capture; autoplay"></iframe>
+      <div class="modal-body call-container" id="video-wrapper">
+        <video id="remote-video-stream" autoplay playsinline style="width:100%; height:100%; object-fit:cover; border-radius:12px; background:#000;"></video>
       </div>
     </div>
 
