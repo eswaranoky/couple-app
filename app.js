@@ -1,4 +1,4 @@
-// Exact Config Credentials
+// Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyA_T43xxOggTqRt_1V_COQaeE-4G0Ufjms",
   authDomain: "couple-app-4816e.firebaseapp.com",
@@ -13,58 +13,31 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let confirmationResult = null;
-let currentUserPhone = "";
-let partnerPhone = "";
+let currentUserEmail = "";
+let partnerEmail = "";
 let roomId = "";
 let selectedReplyMsg = null;
 let profileBase64 = "";
-let recaptchaVerifier = null;
 
-// OTP Send Fix
-function sendOTP() {
-  const phoneInput = document.getElementById('phone-number').value.trim();
-  
-  if (!phoneInput || phoneInput.length < 12) {
-    alert("Please enter a valid 10-digit phone number with +91!");
-    return;
-  }
-
-  if (!recaptchaVerifier) {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-      'size': 'invisible'
-    });
-    recaptchaVerifier = window.recaptchaVerifier;
-  }
-
-  auth.signInWithPhoneNumber(phoneInput, recaptchaVerifier)
+// 1. Google Auth Login
+function loginWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider)
     .then((result) => {
-      confirmationResult = result;
-      currentUserPhone = phoneInput;
-      document.getElementById('otp-group').classList.remove('hidden');
-      document.getElementById('send-otp-btn').classList.add('hidden');
-      alert("OTP sent to " + phoneInput);
-    })
-    .catch((err) => {
-      alert("Error sending OTP: " + err.message);
-    });
-}
-
-function verifyOTP() {
-  const code = document.getElementById('otp-code').value.trim();
-  confirmationResult.confirm(code)
-    .then(() => {
+      currentUserEmail = result.user.email;
       checkUserPartnerStatus();
     })
-    .catch(() => {
-      alert("Invalid OTP! Try again.");
+    .catch((error) => {
+      alert("Login Error: " + error.message);
     });
 }
 
+// 2. Partner Linking Check
 function checkUserPartnerStatus() {
-  db.collection('users').doc(currentUserPhone).get().then((doc) => {
-    if (doc.exists && doc.data().partnerPhone) {
-      partnerPhone = doc.data().partnerPhone;
+  const userDocRef = db.collection('users').doc(currentUserEmail);
+  userDocRef.get().then((doc) => {
+    if (doc.exists && doc.data().partnerEmail) {
+      partnerEmail = doc.data().partnerEmail;
       setupChatRoom();
     } else {
       showScreen('screen-partner');
@@ -73,23 +46,24 @@ function checkUserPartnerStatus() {
 }
 
 function linkPartner() {
-  const pPhone = document.getElementById('partner-phone').value.trim();
-  if (!pPhone || pPhone.length < 12) {
-    alert("Enter valid partner number with +91!");
+  const pEmail = document.getElementById('partner-email').value.trim().toLowerCase();
+  if (!pEmail || !pEmail.includes('@')) {
+    alert("Please enter a valid partner email address!");
     return;
   }
 
-  partnerPhone = pPhone;
-  db.collection('users').doc(currentUserPhone).set({ partnerPhone: pPhone }, { merge: true });
+  partnerEmail = pEmail;
+  db.collection('users').doc(currentUserEmail).set({ partnerEmail: pEmail }, { merge: true });
   setupChatRoom();
 }
 
+// 3. Real-time Chat
 function setupChatRoom() {
-  const ids = [currentUserPhone, partnerPhone].sort();
-  roomId = ids.join('_');
+  const ids = [currentUserEmail, partnerEmail].sort();
+  roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
 
   showScreen('screen-chat');
-  document.getElementById('header-partner-name').innerText = partnerPhone;
+  document.getElementById('header-partner-name').innerText = partnerEmail;
 
   db.collection('rooms').doc(roomId).collection('messages')
     .orderBy('timestamp', 'asc')
@@ -108,7 +82,7 @@ function setupChatRoom() {
 function renderMessage(msg) {
   const chatBox = document.getElementById('chat-box');
   const div = document.createElement('div');
-  const isMe = msg.sender === currentUserPhone;
+  const isMe = msg.sender === currentUserEmail;
   div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
 
   let replyHtml = '';
@@ -140,7 +114,7 @@ function sendMessage() {
 
   const msgData = {
     text: text,
-    sender: currentUserPhone,
+    sender: currentUserEmail,
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -159,7 +133,7 @@ function cancelReply() {
 }
 
 function startCall(type) {
-  alert(`Initiating 1-on-1 ${type.toUpperCase()} Call with ${partnerPhone}... (Agora WebRTC Ready)`);
+  alert(`Initiating 1-on-1 ${type.toUpperCase()} Call with ${partnerEmail}...`);
 }
 
 function showScreen(id) {
@@ -181,7 +155,7 @@ function handleImageUpload(e) {
 }
 
 function loadSettings() {
-  db.collection('users').doc(currentUserPhone).get().then((doc) => {
+  db.collection('users').doc(currentUserEmail).get().then((doc) => {
     if (doc.exists) {
       const data = doc.data();
       if (data.appName) {
@@ -215,7 +189,7 @@ function saveSettings() {
   if (newName) updateData.appName = newName;
   if (profileBase64) updateData.profilePic = profileBase64;
 
-  db.collection('users').doc(currentUserPhone).set(updateData, { merge: true }).then(() => {
+  db.collection('users').doc(currentUserEmail).set(updateData, { merge: true }).then(() => {
     alert("Settings Saved! 1-Year Lock Activated.");
     loadSettings();
     closeSettings();

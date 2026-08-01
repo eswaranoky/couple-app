@@ -75,7 +75,8 @@ body {
   font-size: 13px;
   margin-bottom: 25px;
 }
-input[type="text"], input[type="tel"] {
+
+input[type="text"], input[type="email"] {
   width: 100%;
   padding: 14px;
   margin-bottom: 15px;
@@ -84,6 +85,7 @@ input[type="text"], input[type="tel"] {
   font-size: 15px;
   outline: none;
 }
+
 button {
   width: 100%;
   padding: 14px;
@@ -95,6 +97,17 @@ button {
   font-weight: bold;
   cursor: pointer;
 }
+
+.google-btn {
+  background: #4285f4;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.google-btn:hover { background: #357ae8; }
+
 .hidden { display: none !important; }
 
 .chat-header {
@@ -116,7 +129,7 @@ button {
   border-radius: 50%;
   object-fit: cover;
 }
-.user-info h4 { font-size: 16px; }
+.user-info h4 { font-size: 14px; }
 .user-info .status { font-size: 11px; opacity: 0.8; }
 .header-actions {
   display: flex;

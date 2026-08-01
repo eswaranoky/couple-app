@@ -18,21 +18,16 @@
 
   <div class="app-container">
 
-    <!-- SCREEN 1: Phone OTP Login -->
+    <!-- SCREEN 1: Google Login -->
     <div id="screen-login" class="screen active">
       <div class="auth-box">
         <i class="fa-brands fa-whatsapp main-icon"></i>
-        <h2>Phone Verification</h2>
-        <p class="subtitle">Enter your phone number</p>
+        <h2>Welcome to Our App</h2>
+        <p class="subtitle">Sign in with your Google Account to continue</p>
         
-        <input type="tel" id="phone-number" value="+91 " placeholder="+91 9876543210">
-        <div id="recaptcha-container"></div>
-        <button id="send-otp-btn" onclick="sendOTP()">Send OTP 📩</button>
-
-        <div id="otp-group" class="hidden">
-          <input type="text" id="otp-code" placeholder="Enter 6-digit OTP">
-          <button onclick="verifyOTP()">Verify OTP & Login 🔐</button>
-        </div>
+        <button class="google-btn" onclick="loginWithGoogle()">
+          <i class="fa-brands fa-google"></i> Continue with Google
+        </button>
       </div>
     </div>
 
@@ -41,8 +36,8 @@
       <div class="auth-box">
         <i class="fa-solid fa-heart-circle-check main-icon"></i>
         <h2>Link Partner</h2>
-        <p class="subtitle">Enter your partner's registered phone number to link your room.</p>
-        <input type="tel" id="partner-phone" value="+91 " placeholder="+91 Partner Number">
+        <p class="subtitle">Enter your partner's registered Gmail address to link your room.</p>
+        <input type="email" id="partner-email" placeholder="partner@gmail.com">
         <button onclick="linkPartner()">Connect Room 💕</button>
       </div>
     </div>
