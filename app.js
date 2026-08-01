@@ -27,16 +27,15 @@ let typingTimeout = null;
 
 let isE2EEnabled = localStorage.getItem('e2e_encryption') !== 'false';
 
-// CALL DURATION TRACKER
+// CALL VARS
 let peer = null;
 let localStream = null;
 let currentCall = null;
 let callStartTime = null;
 
-// NOTIFICATION SOUND ENGINE
 const msgAudioSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-// 1. APP INITIALIZATION & SECURITY LOCK
+// 1. INIT & LOCK
 window.addEventListener('DOMContentLoaded', () => {
   checkAppLockState();
 });
@@ -172,9 +171,12 @@ function searchUser() {
 }
 
 function startNewChat(targetEmail) {
-  db.collection('chats').doc(`${currentUserEmail}_${targetEmail}`).set({
+  const ids = [currentUserEmail, targetEmail].sort();
+  const roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
+
+  db.collection('chats').doc(roomId).set({
     users: [currentUserEmail, targetEmail]
-  }).then(() => {
+  }, { merge: true }).then(() => {
     document.getElementById('search-results').classList.add('hidden');
     db.collection('users').doc(targetEmail).get().then(doc => {
       openChatRoom(targetEmail, doc.data());
@@ -190,12 +192,13 @@ function listenAcceptedChats() {
       chatList.innerHTML = '';
 
       snapshot.forEach((doc) => {
-        const users = doc.data().users;
+        const roomData = doc.data();
+        const users = roomData.users;
         const partner = users.find(u => u !== currentUserEmail);
 
         if (partner) {
           db.collection('users').doc(partner).onSnapshot(pDoc => {
-            const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', isOnline: false, lastSeen: null };
+            const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', isOnline: false };
             
             let card = document.getElementById(`card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`);
             if (!card) {
@@ -216,17 +219,13 @@ function listenAcceptedChats() {
             if (isMuted) badgesHtml += `<i class="fa-solid fa-volume-xmark"></i>`;
             if (isBlocked) badgesHtml += `<i class="fa-solid fa-ban" style="color:#ea4335;"></i>`;
 
-            let lastSeenStr = 'Offline';
-            if (pData.lastSeen && pData.lastSeen.toDate) {
-              const dt = pData.lastSeen.toDate();
-              lastSeenStr = `Last seen at ${dt.getHours()}:${dt.getMinutes() < 10 ? '0' : ''}${dt.getMinutes()}`;
-            }
+            const displayNameToShow = roomData.nicknames && roomData.nicknames[partner] ? roomData.nicknames[partner] : (pData.displayName || partner.split('@')[0]);
 
             card.innerHTML = `
               <img src="${pData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
               <div style="flex:1;">
-                <b style="font-size:15px;">${pData.displayName || partner.split('@')[0]}</b>
-                <p class="user-status-text ${pData.isOnline ? 'online' : 'offline'}">${pData.isOnline ? 'Online' : lastSeenStr}</p>
+                <b style="font-size:15px;">${displayNameToShow}</b>
+                <p class="user-status-text ${pData.isOnline ? 'online' : 'offline'}">${pData.isOnline ? 'Online' : 'Offline'}</p>
               </div>
               <div class="chat-badges">${badgesHtml}</div>
             `;
@@ -248,7 +247,7 @@ function listenAcceptedChats() {
     });
 }
 
-// 3. LONG PRESS ACTION SHEET LOGIC
+// 3. LONG PRESS ACTIONS
 function startLongPress(partner) {
   longPressTimer = setTimeout(() => {
     selectedChatPartner = partner;
@@ -295,15 +294,14 @@ function toggleBlockUser() {
 }
 
 function deleteChatRoom() {
-  if (confirm("Delete this chat and room history?")) {
-    db.collection('chats').doc(`${currentUserEmail}_${selectedChatPartner}`).delete();
-    db.collection('chats').doc(`${selectedChatPartner}_${currentUserEmail}`).delete();
+  if (confirm("Delete this chat?")) {
+    db.collection('chats').doc(activeRoomId).delete();
     closeModal('action-sheet');
     listenAcceptedChats();
   }
 }
 
-// 4. CHAT ROOM & TYPING INDICATOR & BLUE TICKS
+// 4. CHAT ROOM & SHARED WALLPAPER & NICKNAMES REALTIME SYNC
 function openChatRoom(partner, partnerData) {
   closeAllMenus();
   currentActivePartner = partner;
@@ -312,10 +310,36 @@ function openChatRoom(partner, partnerData) {
   activeRoomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
 
   showScreen('screen-chat');
-  document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
+
+  // LISTEN FOR SHARED WALLPAPER & SHARED NICKNAMES
+  db.collection('chats').doc(activeRoomId).onSnapshot(doc => {
+    if (doc.exists) {
+      const data = doc.data();
+      
+      // 1. Sync Nickname
+      if (data.nicknames && data.nicknames[partner]) {
+        document.getElementById('chat-header-name').innerText = data.nicknames[partner];
+      } else {
+        document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
+      }
+
+      // 2. Sync Realtime Chat Background Wallpaper
+      const chatBox = document.getElementById('chat-box');
+      if (data.sharedBg) {
+        if (data.sharedBg.startsWith('data:image')) {
+          chatBox.style.backgroundImage = `url(${data.sharedBg})`;
+          chatBox.style.backgroundColor = 'transparent';
+        } else {
+          chatBox.style.backgroundImage = 'none';
+          chatBox.style.backgroundColor = data.sharedBg;
+        }
+      }
+    }
+  });
+
   document.getElementById('chat-header-avatar').src = partnerData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-  // ONLINE & TYPING REALTIME LISTENERS
+  // ONLINE & TYPING LISTENERS
   db.collection('users').doc(partner).onSnapshot(doc => {
     if (doc.exists) {
       const data = doc.data();
@@ -334,27 +358,11 @@ function openChatRoom(partner, partnerData) {
     }
   });
 
-  // WALLPAPER / THEME RESTORE
-  const savedBg = localStorage.getItem(`chat_bg_${activeRoomId}`);
-  const chatBox = document.getElementById('chat-box');
-  if (savedBg) {
-    if (savedBg.startsWith('data:image')) {
-      chatBox.style.backgroundImage = `url(${savedBg})`;
-      chatBox.style.backgroundColor = 'transparent';
-    } else {
-      chatBox.style.backgroundImage = 'none';
-      chatBox.style.backgroundColor = savedBg;
-      document.getElementById('chat-color-input').value = savedBg;
-    }
-  } else {
-    chatBox.style.backgroundImage = 'none';
-    chatBox.style.backgroundColor = '#0b141a';
-  }
-
-  // MESSAGES SNAPSHOT
+  // REALTIME MESSAGES SNAPSHOT
   db.collection('rooms').doc(activeRoomId).collection('messages')
     .orderBy('timestamp', 'asc')
     .onSnapshot((snapshot) => {
+      const chatBox = document.getElementById('chat-box');
       chatBox.innerHTML = '';
       let hasNewPartnerMsg = false;
 
@@ -409,13 +417,14 @@ function toggleViewOnceMode() {
   document.getElementById('view-once-btn').classList.toggle('active', isViewOnceMode);
 }
 
+// 5. 16K UNCOMPRESSED ULTRA-HD IMAGE UPLOAD & IN-APP PERMISSION
 function sendMediaMessage(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const base64Data = e.target.result;
+    const base64Data = e.target.result; // Full Crisp 16K HD Original Quality
     db.collection('rooms').doc(activeRoomId).collection('messages').add({
       type: 'image',
       mediaUrl: base64Data,
@@ -429,17 +438,6 @@ function sendMediaMessage(event) {
   reader.readAsDataURL(file);
 }
 
-function deleteMessage(msgId, senderEmail) {
-  if (senderEmail !== currentUserEmail) {
-    alert("You can only delete your own messages!");
-    return;
-  }
-  if (confirm("Delete this message?")) {
-    db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete();
-  }
-}
-
-// 5. SWIPE TO REPLY & RENDER MESSAGES
 function renderMessage(msg, msgId) {
   const chatBox = document.getElementById('chat-box');
   
@@ -455,7 +453,7 @@ function renderMessage(msg, msgId) {
   const isMe = msg.sender === currentUserEmail;
   div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
 
-  // SWIPE TOUCH EVENT
+  // SWIPE TO REPLY
   let startX = 0;
   div.ontouchstart = (e) => { startX = e.touches[0].clientX; };
   div.ontouchmove = (e) => {
@@ -464,7 +462,7 @@ function renderMessage(msg, msgId) {
   };
   div.ontouchend = (e) => {
     div.style.transform = 'translateX(0px)';
-    setReplyTarget(msg.type === 'text' ? decryptText(msg.text) : 'Media Photo');
+    setReplyTarget(msg.type === 'text' ? decryptText(msg.text) : '16K Photo');
   };
 
   let replyHtml = msg.replyTo ? `<div class="reply-preview-box">↩️ ${msg.replyTo}</div>` : '';
@@ -480,7 +478,7 @@ function renderMessage(msg, msgId) {
   } else if (msg.type === 'image') {
     div.innerHTML = `
       ${replyHtml}
-      <img src="${msg.mediaUrl}">
+      <img src="${msg.mediaUrl}" class="chat-img-hd" onclick="openHDLightbox('${msg.mediaUrl}')">
       <span class="msg-meta">${tickHtml} ${deleteBtnHtml}</span>
     `;
   } else {
@@ -493,12 +491,23 @@ function renderMessage(msg, msgId) {
   chatBox.appendChild(div);
 }
 
+function openHDLightbox(imgUrl) {
+  const w = window.open("");
+  w.document.write(`<body style="background:#000; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;"><img src="${imgUrl}" style="max-width:100%; max-height:100vh; object-fit:contain;"></body>`);
+}
+
 function openViewOnceMedia(msgId, mediaUrl) {
-  const windowRef = window.open("");
-  windowRef.document.write(`<img src="${mediaUrl}" style="max-width:100%; border-radius:8px;">`);
+  openHDLightbox(mediaUrl);
   db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).update({
     openedBy: firebase.firestore.FieldValue.arrayUnion(currentUserEmail)
   });
+}
+
+function deleteMessage(msgId, senderEmail) {
+  if (senderEmail !== currentUserEmail) return;
+  if (confirm("Delete this message?")) {
+    db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete();
+  }
 }
 
 function setReplyTarget(text) {
@@ -547,7 +556,7 @@ function sendDialogue(text) {
   toggleStickerPanel();
 }
 
-// 7. SETTINGS, WALLPAPER & FULL HD PROFILE
+// 7. SETTINGS & SHARED NICKNAMES & SHARED WALLPAPERS
 function openSettingsModal() {
   closeAllMenus();
   document.getElementById('e2e-toggle').checked = isE2EEnabled;
@@ -569,8 +578,8 @@ function saveNewPin() {
   const pin = document.getElementById('new-pin-input').value;
   if (pin.length === 4) {
     localStorage.setItem('app_passcode_pin', pin);
-    alert("Passcode PIN Saved Successfully!");
-  } else alert("Please enter 4-digit PIN!");
+    alert("Passcode PIN Saved!");
+  } else alert("Enter 4-digit PIN!");
 }
 
 function openColorPicker() {
@@ -578,31 +587,25 @@ function openColorPicker() {
   document.getElementById('color-modal').classList.remove('hidden');
 }
 
-function applyCustomColor(colorHex) {
-  const chatBox = document.getElementById('chat-box');
-  chatBox.style.backgroundImage = 'none';
-  chatBox.style.backgroundColor = colorHex;
-  localStorage.setItem(`chat_bg_${activeRoomId}`, colorHex);
+function applySharedColor(colorHex) {
+  db.collection('chats').doc(activeRoomId).set({
+    sharedBg: colorHex
+  }, { merge: true });
 }
 
-function applyPhotoWallpaper(event) {
+function applySharedPhotoWallpaper(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = function(e) {
     const base64Data = e.target.result;
-    const chatBox = document.getElementById('chat-box');
-    chatBox.style.backgroundImage = `url(${base64Data})`;
-    chatBox.style.backgroundColor = 'transparent';
-    localStorage.setItem(`chat_bg_${activeRoomId}`, base64Data);
+    db.collection('chats').doc(activeRoomId).set({
+      sharedBg: base64Data
+    }, { merge: true });
     closeModal('color-modal');
   };
   reader.readAsDataURL(file);
-}
-
-function openFullHDProfile() {
-  if (activePartnerData) openProfileView(activePartnerData);
 }
 
 function openActivePartnerProfile() {
@@ -614,15 +617,36 @@ function openProfileView(userData) {
   document.getElementById('profile-modal-name').innerText = userData.displayName || userData.email.split('@')[0];
   document.getElementById('profile-modal-img').src = userData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
   document.getElementById('profile-modal-email').innerText = userData.email;
-  document.getElementById('profile-modal-bio').innerText = userData.bio || "Hey there! I am using WhatsApp.";
+
+  // Load existing shared nickname
+  db.collection('chats').doc(activeRoomId).get().then(doc => {
+    if (doc.exists && doc.data().nicknames) {
+      document.getElementById('nickname-field').value = doc.data().nicknames[currentActivePartner] || '';
+    }
+  });
+
   document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function saveSharedNickname() {
+  const newNick = document.getElementById('nickname-field').value.trim();
+  if (!newNick) return;
+
+  db.collection('chats').doc(activeRoomId).set({
+    nicknames: {
+      [currentActivePartner]: newNick
+    }
+  }, { merge: true }).then(() => {
+    alert("Shared Nickname Updated for Both Users!");
+    closeModal('profile-modal');
+  });
 }
 
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-// 8. PEERJS CALLS & DURATION LOG IN CHAT
+// 8. PEERJS CALLS & LOGS
 function initPeerJS() {
   const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   peer = new Peer(myPeerId);
@@ -655,7 +679,7 @@ function initPeerJS() {
 }
 
 function startCall(type) {
-  if (!currentActivePartner) { alert("Please select a user to call!"); return; }
+  if (!currentActivePartner) return;
 
   const targetPeerId = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
   const isVideo = (type === 'video');
@@ -716,7 +740,6 @@ function toggleMuteMic() {
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
-      document.getElementById('btn-toggle-mic').classList.toggle('off', !audioTrack.enabled);
     }
   }
 }
@@ -726,7 +749,6 @@ function toggleCamera() {
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
-      document.getElementById('btn-toggle-cam').classList.toggle('off', !videoTrack.enabled);
     }
   }
 }

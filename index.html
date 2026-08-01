@@ -12,7 +12,7 @@
 
   <div class="app-container">
 
-    <!-- APP LOCK SCREEN OVERLAY -->
+    <!-- APP LOCK OVERLAY -->
     <div id="app-lock-screen" class="lock-overlay hidden">
       <i class="fa-solid fa-lock" style="font-size:50px; color:#00a884;"></i>
       <h3 style="margin-top:15px;">WhatsApp Locked</h3>
@@ -32,7 +32,7 @@
       </div>
     </div>
 
-    <!-- SCREEN 2: HOME SCREEN -->
+    <!-- SCREEN 2: HOME -->
     <div id="screen-home" class="screen">
       <div class="chat-header">
         <h3>WhatsApp</h3>
@@ -65,7 +65,7 @@
       <div class="chat-header">
         <div class="user-info" style="display:flex; align-items:center; gap:10px;">
           <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()" style="cursor:pointer;"></i>
-          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width:38px; height:38px; border-radius:50%; object-fit:cover;" onclick="openFullHDProfile()">
+          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width:38px; height:38px; border-radius:50%; object-fit:cover;" onclick="openActivePartnerProfile()">
           <div onclick="openActivePartnerProfile()" style="cursor:pointer;">
             <h4 id="chat-header-name" style="font-size:15px;">User</h4>
             <span id="chat-header-status" class="user-status-text offline">Offline</span>
@@ -77,12 +77,12 @@
           <i class="fa-solid fa-ellipsis-vertical" onclick="toggleChatMenu()"></i>
         </div>
         <div id="chat-menu" class="menu-dropdown hidden">
-          <div class="menu-item" onclick="openActivePartnerProfile()"><i class="fa-solid fa-id-card"></i> View Profile</div>
-          <div class="menu-item" onclick="openColorPicker()"><i class="fa-solid fa-palette"></i> Custom Chat Theme</div>
+          <div class="menu-item" onclick="openActivePartnerProfile()"><i class="fa-solid fa-id-card"></i> View Profile & Nickname</div>
+          <div class="menu-item" onclick="openColorPicker()"><i class="fa-solid fa-palette"></i> Shared Chat Wallpaper</div>
         </div>
       </div>
 
-      <!-- CHAT MESSAGES -->
+      <!-- CHAT MESSAGES CONTAINER -->
       <div class="chat-messages" id="chat-box"></div>
 
       <!-- ACTIVE REPLY PREVIEW BAR -->
@@ -94,11 +94,12 @@
         <i class="fa-solid fa-xmark" onclick="cancelReply()" style="cursor:pointer; font-size:16px;"></i>
       </div>
 
-      <!-- CHAT INPUT AREA -->
+      <!-- INPUT BAR -->
       <div class="chat-input-area">
         <i class="fa-solid fa-face-smile attach-btn" onclick="toggleStickerPanel()"></i>
         
-        <label for="img-attach" class="attach-btn" title="Send Image">
+        <!-- IN-APP NATIVE MEDIA PICKER (NO APP INFO PERMISSION ISSUE) -->
+        <label for="img-attach" class="attach-btn" title="Send 16K Photo">
           <i class="fa-solid fa-paperclip"></i>
         </label>
         <input type="file" id="img-attach" accept="image/*" style="display:none;" onchange="sendMediaMessage(event)">
@@ -126,13 +127,13 @@
           <span class="dialogue-chip" onclick="sendDialogue('ஆஹா.. என்ன ஒரு புத்திசாலித்தனம்! 😂')">ஆஹா.. என்ன ஒரு புத்திசாலித்தனம்! 😂</span>
           <span class="dialogue-chip" onclick="sendDialogue('ஏன்டா உனக்கு இந்த தேவையில்லாத வேலை? 🤦‍♂️')">ஏன்டா உனக்கு இந்த தேவையில்லாத வேலை? 🤦‍♂️</span>
           <span class="dialogue-chip" onclick="sendDialogue('எதுக்கும் ஒரு அளவு இருக்கு தம்பி! ✋')">எதுக்கும் ஒரு அளவு இருக்கு தம்பி! ✋</span>
-          <span class="dialogue-chip" onclick="sendDialogue('வடிவேலு Style-ல சொல்றேன்... போயா யோவ்! 🏃‍♂️')">வடிவேலு Style-ல போயா யோவ்! 🏃‍♂️</span>
+          <span class="dialogue-chip" onclick="sendDialogue('வடிவேலு Style-ல போயா யோவ்! 🏃‍♂️')">வடிவேலு Style-ல போயா யோவ்! 🏃‍♂️</span>
           <span class="dialogue-chip" onclick="sendDialogue('நம்பிட்டேன்.. கண்டிப்பா நம்பிட்டேன்! 😜')">நம்பிட்டேன்.. கண்டிப்பா நம்பிட்டேன்! 😜</span>
         </div>
       </div>
     </div>
 
-    <!-- MODAL 1: SETTINGS & ENCRYPTION & PASSCODE -->
+    <!-- MODAL 1: SETTINGS -->
     <div id="settings-modal" class="custom-modal hidden">
       <div class="modal-content">
         <i class="fa-solid fa-xmark" onclick="closeModal('settings-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
@@ -161,40 +162,46 @@
       </div>
     </div>
 
-    <!-- MODAL 2: PROFILE & FULL HD LIGHTBOX VIEW -->
+    <!-- MODAL 2: PROFILE & SHARED NICKNAME -->
     <div id="profile-modal" class="custom-modal hidden">
       <div class="modal-content">
         <i class="fa-solid fa-xmark" onclick="closeModal('profile-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
         <h3 id="profile-modal-name">User Profile</h3>
         <img id="profile-modal-img" class="profile-img-hd" src="" alt="Profile Photo">
         <p id="profile-modal-email" style="color:#8696a0; font-size:13px;"></p>
-        <p id="profile-modal-bio" style="margin-top:10px; font-size:14px;"></p>
+        
+        <!-- NICKNAME SECTION -->
+        <div id="nickname-section" style="margin-top:15px; text-align:left;">
+          <label style="font-size:12px; color:#00a884; font-weight:bold;">Shared Nickname:</label>
+          <input type="text" id="nickname-field" class="nickname-input" placeholder="Set a funny nickname...">
+          <button onclick="saveSharedNickname()" style="width:100%; background:#00a884; color:white; border:none; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">Set Nickname for Both</button>
+        </div>
       </div>
     </div>
 
-    <!-- MODAL 3: CUSTOM THEME & PHOTO BACKGROUND -->
+    <!-- MODAL 3: SHARED REALTIME WALLPAPER -->
     <div id="color-modal" class="custom-modal hidden">
       <div class="modal-content">
         <i class="fa-solid fa-xmark" onclick="closeModal('color-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
-        <h3>Chat Wallpaper</h3>
-        <p style="font-size:12px; color:#8696a0; margin-top:5px;">Select Color or Own Photo Wallpaper</p>
+        <h3>Shared Wallpaper</h3>
+        <p style="font-size:12px; color:#8696a0; margin-top:5px;">Whatever you set will sync with your partner!</p>
         
         <div style="display:flex; flex-direction:column; gap:15px; margin:20px 0; align-items:center;">
           <div>
-            <label style="font-size:13px; display:block; margin-bottom:5px;">Solid Color Picker:</label>
-            <input type="color" id="chat-color-input" class="color-input-picker" value="#0b141a" onchange="applyCustomColor(this.value)">
+            <label style="font-size:13px; display:block; margin-bottom:5px;">Solid Color:</label>
+            <input type="color" id="chat-color-input" value="#0b141a" onchange="applySharedColor(this.value)">
           </div>
 
           <div style="width:100%; border-top:1px solid #313d45; padding-top:15px;">
-            <label style="font-size:13px; display:block; margin-bottom:8px;">Set Own Wallpaper Photo:</label>
-            <input type="file" id="bg-photo-input" accept="image/*" style="display:none;" onchange="applyPhotoWallpaper(event)">
+            <label style="font-size:13px; display:block; margin-bottom:8px;">Ultra-HD Own Photo Wallpaper:</label>
+            <input type="file" id="bg-photo-input" accept="image/*" style="display:none;" onchange="applySharedPhotoWallpaper(event)">
             <button onclick="document.getElementById('bg-photo-input').click()" style="background:#202c33; color:#00a884; border:1px solid #00a884; padding:8px 16px; border-radius:18px; cursor:pointer;"><i class="fa-solid fa-image"></i> Choose Photo</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- LONG PRESS CHAT ACTION SHEET -->
+    <!-- ACTION SHEET FOR LONG PRESS -->
     <div id="action-sheet" class="custom-modal hidden" onclick="closeModal('action-sheet')">
       <div class="action-sheet-modal" onclick="event.stopPropagation()">
         <div class="action-sheet-item" onclick="togglePinChat()"><i class="fa-solid fa-thumbtack"></i> <span id="pin-text">Pin Chat</span></div>

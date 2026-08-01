@@ -71,7 +71,7 @@ body {
   margin: 20px 0;
 }
 
-/* LOGIN SCREEN */
+/* AUTH LOGIN SCREEN */
 .auth-box {
   display: flex;
   flex-direction: column;
@@ -108,7 +108,7 @@ body {
   gap: 10px;
 }
 
-/* HEADER & MENU */
+/* HEADER & MENUS */
 .chat-header {
   background-color: #202c33;
   padding: 10px 16px;
@@ -157,7 +157,7 @@ body {
   background-color: #182229;
 }
 
-/* SEARCH & CHATS LIST */
+/* SEARCH & LIST */
 .search-section {
   padding: 10px;
   background-color: #111b21;
@@ -245,7 +245,7 @@ body {
 }
 
 .msg-bubble {
-  max-width: 78%;
+  max-width: 82%;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 14px;
@@ -267,14 +267,16 @@ body {
   color: #e9edef;
 }
 
-.msg-bubble img {
+.msg-bubble img.chat-img-hd {
   max-width: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-top: 5px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
 }
 
 .reply-preview-box {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   border-left: 3px solid #00a884;
   padding: 4px 8px;
   border-radius: 4px;
@@ -308,7 +310,7 @@ body {
   margin: 5px 0;
 }
 
-/* REPLY INPUT BAR */
+/* INPUT AREA & REPLIES */
 .active-reply-bar {
   background: #1f2c34;
   padding: 8px 12px;
@@ -361,7 +363,7 @@ body {
   border-color: #00a884;
 }
 
-/* TAMIL STICKER / DIALOGUE PANEL */
+/* TAMIL STICKERS & DIALOGUES PANEL */
 .sticker-panel {
   background: #111b21;
   max-height: 220px;
@@ -396,14 +398,14 @@ body {
   border: 1px solid #2a3942;
 }
 
-/* MODALS & ACTION SHEETS */
+/* MODALS */
 .custom-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.88);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -414,8 +416,8 @@ body {
   background: #222e35;
   padding: 20px;
   border-radius: 12px;
-  width: 85%;
-  max-width: 360px;
+  width: 88%;
+  max-width: 380px;
   text-align: center;
   color: white;
   position: relative;
@@ -427,6 +429,17 @@ body {
   object-fit: contain;
   border-radius: 8px;
   margin: 15px 0;
+}
+
+.nickname-input {
+  width: 100%;
+  padding: 10px;
+  background: #111b21;
+  border: 1px solid #00a884;
+  border-radius: 8px;
+  color: white;
+  margin: 10px 0;
+  outline: none;
 }
 
 /* ACTION SHEET FOR LONG PRESS */
@@ -460,7 +473,7 @@ body {
   color: #ea4335;
 }
 
-/* TOGGLE SWITCH STYLES */
+/* SWITCH TOGGLE */
 .switch-row {
   display: flex;
   align-items: center;
@@ -500,7 +513,7 @@ body {
 input:checked + .slider { background-color: #00a884; }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* CALL MODAL */
+/* CALL OVERLAY */
 #call-modal {
   position: fixed;
   top: 0;
