@@ -63,7 +63,7 @@ function loginUser() {
   listenForMessages();
 }
 
-// --- REAL-TIME FIRESTORE LISTENER ---
+// --- REAL-TIME FIRESTORE LISTENER (WITH INSTANT DELETION SYNC) ---
 function listenForMessages() {
   if (!activeRoomId) return;
 
@@ -73,10 +73,31 @@ function listenForMessages() {
     .orderBy('timestamp', 'asc')
     .onSnapshot((snapshot) => {
       const chatBox = document.getElementById('chat-box');
-      chatBox.innerHTML = ''; // Clear chat container on updates
 
-      snapshot.forEach((doc) => {
-        renderMessage(doc.data(), doc.id);
+      snapshot.docChanges().forEach((change) => {
+        const msgId = change.doc.id;
+
+        // Message Added
+        if (change.type === "added") {
+          renderMessage(change.doc.data(), msgId);
+        }
+        
+        // Message Modified
+        if (change.type === "modified") {
+          const existingElement = document.getElementById(`msg-${msgId}`);
+          if (existingElement) {
+            existingElement.remove();
+          }
+          renderMessage(change.doc.data(), msgId);
+        }
+
+        // Message Deleted -> REMOVE FROM UI INSTANTLY
+        if (change.type === "removed") {
+          const elementToRemove = document.getElementById(`msg-${msgId}`);
+          if (elementToRemove) {
+            elementToRemove.remove(); // Direct DOM Removal
+          }
+        }
       });
 
       // Auto-scroll to bottom
@@ -93,6 +114,7 @@ function renderMessage(msg, msgId) {
   // Handle Call Log Message Type
   if (msg.type === 'call_log') {
     const callDiv = document.createElement('div');
+    callDiv.id = `msg-${msgId}`;
     callDiv.className = 'call-log-msg';
     callDiv.innerHTML = `<i class="fa-solid fa-phone"></i> ${msg.text}`;
     chatBox.appendChild(callDiv);
@@ -100,6 +122,7 @@ function renderMessage(msg, msgId) {
   }
 
   const div = document.createElement('div');
+  div.id = `msg-${msgId}`; // Unique ID for instant UI deletion
   const isMe = msg.sender === currentUserEmail;
   div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
 
@@ -117,7 +140,7 @@ function renderMessage(msg, msgId) {
 
   let replyHtml = msg.replyTo ? `<div class="reply-preview-box">↩️ ${msg.replyTo}</div>` : '';
   
-  // DIRECT DELETE BUTTON (Stop propagation prevents trigger conflict with swipe/click)
+  // DIRECT DELETE BUTTON (stopPropagation prevents swipe & event conflict)
   let deleteBtnHtml = isMe ? `<i class="fa-solid fa-trash delete-btn" onclick="event.stopPropagation(); deleteMessage('${msgId}')" title="Delete Message"></i>` : '';
   let tickHtml = isMe ? `<i class="fa-solid fa-check-double ${msg.isRead ? 'blue-tick' : ''}"></i>` : '';
 
@@ -207,7 +230,7 @@ function sendImage(imageUrl, isViewOnce = false) {
     });
 }
 
-// --- DELETE MESSAGE (FIXED) ---
+// --- DELETE MESSAGE HANDLER ---
 function deleteMessage(msgId) {
   if (!activeRoomId || !msgId) return;
 
@@ -218,7 +241,7 @@ function deleteMessage(msgId) {
       .doc(msgId)
       .delete()
       .then(() => {
-        console.log("Message deleted successfully!");
+        console.log("Message deleted from Firestore successfully!");
       })
       .catch((error) => {
         console.error("Error deleting message: ", error);
