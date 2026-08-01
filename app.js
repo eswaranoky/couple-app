@@ -14,31 +14,35 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 let currentUserEmail = "";
+let currentUserData = null;
 let currentActivePartner = "";
+let activePartnerData = null;
 let activeRoomId = "";
 
-// PEERJS WEBRTC CALL VARIABLES
+// PEERJS WEBRTC CALL ENGINE
 let peer = null;
 let localStream = null;
 let currentCall = null;
-let isMicMuted = false;
-let isCamOff = false;
 
-// 1. AUTO LOGIN & INITIAL SETUP
+// 1. ONLINE STATUS CONTROLLER & USER AUTH
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUserEmail = user.email.toLowerCase();
-    db.collection('users').doc(currentUserEmail).get().then((doc) => {
-      if (!doc.exists) {
-        db.collection('users').doc(currentUserEmail).set({
-          email: currentUserEmail,
-          displayName: user.displayName || currentUserEmail.split('@')[0],
-          photoURL: user.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-          bio: "Hey there! I am using WhatsApp."
-        });
-      }
-    });
+    
+    currentUserData = {
+      email: currentUserEmail,
+      displayName: user.displayName || currentUserEmail.split('@')[0],
+      photoURL: user.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+      bio: "Hey there! I am using WhatsApp."
+    };
 
+    db.collection('users').doc(currentUserEmail).set({
+      ...currentUserData,
+      isOnline: true,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    setupPresenceSystem();
     initPeerJS();
     openHome();
   } else {
@@ -46,19 +50,294 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
+// PRESENCE SYSTEM (APP-IL IRUKUM PODHU MATTUM ONLINE)
+function setupPresenceSystem() {
+  window.addEventListener('beforeunload', () => {
+    setUserOffline();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      setUserOnline();
+    } else {
+      setUserOffline();
+    }
+  });
+}
+
+function setUserOnline() {
+  if (currentUserEmail) {
+    db.collection('users').doc(currentUserEmail).update({ isOnline: true });
+  }
+}
+
+function setUserOffline() {
+  if (currentUserEmail) {
+    db.collection('users').doc(currentUserEmail).update({
+      isOnline: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+}
+
 function loginWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(provider);
 }
 
-function logout() { auth.signOut(); }
+function logout() {
+  setUserOffline();
+  auth.signOut();
+}
 
 function encryptText(text) { return btoa(encodeURIComponent(text)); }
 function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. WEBRTC CALL ENGINE (FIXED FULLSCREEN & CALL CONTROLS)
+// 2. HOME MENU & CHATS LIST
+function openHome() {
+  closeAllMenus();
+  showScreen('screen-home');
+  listenAcceptedChats();
+}
+
+function toggleHomeMenu() {
+  document.getElementById('home-menu').classList.toggle('hidden');
+}
+
+function toggleChatMenu() {
+  document.getElementById('chat-menu').classList.toggle('hidden');
+}
+
+function closeAllMenus() {
+  const hm = document.getElementById('home-menu');
+  const cm = document.getElementById('chat-menu');
+  if (hm) hm.classList.add('hidden');
+  if (cm) cm.classList.add('hidden');
+}
+
+function searchUser() {
+  const query = document.getElementById('search-email-input').value.trim().toLowerCase();
+  const resultsDiv = document.getElementById('search-results');
+
+  if (!query || query === currentUserEmail) {
+    resultsDiv.classList.add('hidden');
+    return;
+  }
+
+  db.collection('users').where('email', '>=', query).where('email', '<=', query + '\uf8ff').get()
+    .then((snapshot) => {
+      resultsDiv.innerHTML = '';
+      if (snapshot.empty) { resultsDiv.classList.add('hidden'); return; }
+      resultsDiv.classList.remove('hidden');
+      snapshot.forEach((doc) => {
+        const u = doc.data();
+        if (u.email === currentUserEmail) return;
+
+        const div = document.createElement('div');
+        div.className = 'user-item';
+        div.innerHTML = `
+          <span>${u.email}</span>
+          <button onclick="startNewChat('${u.email}')" style="background:#00a884; color:white; border:none; padding:6px 14px; border-radius:15px; cursor:pointer;">Message</button>
+        `;
+        resultsDiv.appendChild(div);
+      });
+    });
+}
+
+function startNewChat(targetEmail) {
+  db.collection('chats').doc(`${currentUserEmail}_${targetEmail}`).set({
+    users: [currentUserEmail, targetEmail]
+  }).then(() => {
+    document.getElementById('search-results').classList.add('hidden');
+    db.collection('users').doc(targetEmail).get().then(doc => {
+      openChatRoom(targetEmail, doc.data());
+    });
+  });
+}
+
+function listenAcceptedChats() {
+  db.collection('chats').where('users', 'array-contains', currentUserEmail)
+    .onSnapshot((snapshot) => {
+      const chatList = document.getElementById('recent-chats-list');
+      if (!chatList) return;
+      chatList.innerHTML = '';
+
+      snapshot.forEach((doc) => {
+        const users = doc.data().users;
+        const partner = users.find(u => u !== currentUserEmail);
+
+        if (partner) {
+          db.collection('users').doc(partner).onSnapshot(pDoc => {
+            const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', isOnline: false };
+            
+            let existingCard = document.getElementById(`card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`);
+            if (!existingCard) {
+              existingCard = document.createElement('div');
+              existingCard.id = `card-${partner.replace(/[^a-zA-Z0-9]/g, "")}`;
+              existingCard.className = 'chat-card';
+              chatList.appendChild(existingCard);
+            }
+
+            existingCard.onclick = () => openChatRoom(partner, pData);
+            existingCard.innerHTML = `
+              <img src="${pData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
+              <div style="flex:1;">
+                <b style="font-size:15px;">${pData.displayName || partner.split('@')[0]}</b>
+                <p class="user-status-text ${pData.isOnline ? 'online' : 'offline'}">${pData.isOnline ? 'Online' : 'Offline'}</p>
+              </div>
+            `;
+          });
+        }
+      });
+    });
+}
+
+// 3. CHAT ROOM & MESSAGES
+function openChatRoom(partner, partnerData) {
+  closeAllMenus();
+  currentActivePartner = partner;
+  activePartnerData = partnerData;
+  const ids = [currentUserEmail, partner].sort();
+  activeRoomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
+
+  showScreen('screen-chat');
+  document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
+  document.getElementById('chat-header-avatar').src = partnerData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+  // REALTIME ONLINE STATUS MONITOR IN CHAT ROOM
+  db.collection('users').doc(partner).onSnapshot(doc => {
+    if (doc.exists) {
+      const data = doc.data();
+      const statusElement = document.getElementById('chat-header-status');
+      if (data.isOnline) {
+        statusElement.innerText = "Online";
+        statusElement.className = "user-status-text online";
+      } else {
+        statusElement.innerText = "Offline";
+        statusElement.className = "user-status-text offline";
+      }
+    }
+  });
+
+  // LOAD USER COLOR PREFERENCE FOR THIS CHAT
+  const savedBgColor = localStorage.getItem(`chat_bg_${activeRoomId}`);
+  if (savedBgColor) {
+    document.getElementById('chat-box').style.backgroundColor = savedBgColor;
+  } else {
+    document.getElementById('chat-box').style.backgroundColor = '#0b141a';
+  }
+
+  // LISTEN MESSAGES
+  db.collection('rooms').doc(activeRoomId).collection('messages')
+    .orderBy('timestamp', 'asc')
+    .onSnapshot((snapshot) => {
+      const chatBox = document.getElementById('chat-box');
+      chatBox.innerHTML = '';
+
+      snapshot.forEach((doc) => {
+        renderMessage(doc.data(), doc.id);
+      });
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+}
+
+function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  db.collection('rooms').doc(activeRoomId).collection('messages').add({
+    type: 'text',
+    text: encryptText(text),
+    sender: currentUserEmail,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  input.value = '';
+}
+
+function sendMediaMessage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64Data = e.target.result;
+    db.collection('rooms').doc(activeRoomId).collection('messages').add({
+      type: 'image',
+      mediaUrl: base64Data,
+      sender: currentUserEmail,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteMessage(msgId, senderEmail) {
+  if (senderEmail !== currentUserEmail) {
+    alert("You can only delete your own messages!");
+    return;
+  }
+  if (confirm("Delete this message?")) {
+    db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete();
+  }
+}
+
+function renderMessage(msg, msgId) {
+  const chatBox = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  const isMe = msg.sender === currentUserEmail;
+  div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
+
+  let deleteBtnHtml = isMe ? `<i class="fa-solid fa-trash" onclick="deleteMessage('${msgId}', '${msg.sender}')" style="margin-left:8px; cursor:pointer; font-size:11px; opacity:0.7;"></i>` : '';
+
+  if (msg.type === 'image') {
+    div.innerHTML = `
+      <img src="${msg.mediaUrl}">
+      <span class="msg-meta">${deleteBtnHtml}</span>
+    `;
+  } else {
+    div.innerHTML = `
+      <span>${decryptText(msg.text)}</span>
+      <span class="msg-meta">${deleteBtnHtml}</span>
+    `;
+  }
+  chatBox.appendChild(div);
+}
+
+// 4. CHAT COLOR CHANGE & PROFILE MODAL
+function openColorPicker() {
+  closeAllMenus();
+  document.getElementById('color-modal').classList.remove('hidden');
+}
+
+function setChatBgColor(color) {
+  document.getElementById('chat-box').style.backgroundColor = color;
+  localStorage.setItem(`chat_bg_${activeRoomId}`, color);
+  closeModal('color-modal');
+}
+
+function openActivePartnerProfile() {
+  closeAllMenus();
+  if (activePartnerData) {
+    openProfileView(activePartnerData);
+  }
+}
+
+function openProfileView(userData) {
+  document.getElementById('profile-modal-name').innerText = userData.displayName || userData.email.split('@')[0];
+  document.getElementById('profile-modal-img').src = userData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+  document.getElementById('profile-modal-email').innerText = userData.email;
+  document.getElementById('profile-modal-bio').innerText = userData.bio || "Hey there! I am using WhatsApp.";
+  document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+// 5. CALL ENGINE (PEERJS)
 function initPeerJS() {
   const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   peer = new Peer(myPeerId);
@@ -122,7 +401,6 @@ function startCall(type) {
   });
 }
 
-// CUT / END CALL
 function endCall() {
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
@@ -135,192 +413,24 @@ function endCall() {
   document.getElementById('call-modal').classList.add('hidden');
 }
 
-// TOGGLE MIC
 function toggleMuteMic() {
   if (localStream) {
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
-      isMicMuted = !isMicMuted;
-      audioTrack.enabled = !isMicMuted;
-      const btn = document.getElementById('btn-toggle-mic');
-      if (isMicMuted) {
-        btn.classList.add('off');
-        btn.innerHTML = `<i class="fa-solid fa-microphone-slash"></i>`;
-      } else {
-        btn.classList.remove('off');
-        btn.innerHTML = `<i class="fa-solid fa-microphone"></i>`;
-      }
+      audioTrack.enabled = !audioTrack.enabled;
+      document.getElementById('btn-toggle-mic').classList.toggle('off', !audioTrack.enabled);
     }
   }
 }
 
-// TOGGLE CAMERA
 function toggleCamera() {
   if (localStream) {
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
-      isCamOff = !isCamOff;
-      videoTrack.enabled = !isCamOff;
-      const btn = document.getElementById('btn-toggle-cam');
-      if (isCamOff) {
-        btn.classList.add('off');
-        btn.innerHTML = `<i class="fa-solid fa-video-slash"></i>`;
-      } else {
-        btn.classList.remove('off');
-        btn.innerHTML = `<i class="fa-solid fa-video"></i>`;
-      }
+      videoTrack.enabled = !videoTrack.enabled;
+      document.getElementById('btn-toggle-cam').classList.toggle('off', !videoTrack.enabled);
     }
   }
-}
-
-// 3. HOME & NAVIGATION
-function openHome() {
-  showScreen('screen-home');
-  listenAcceptedChats();
-}
-
-function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-  if (tabName === 'chats') {
-    document.getElementById('tab-chats-btn').classList.add('active');
-    document.getElementById('tab-chats-content').classList.remove('hidden');
-  } else {
-    document.getElementById('tab-status-btn').classList.add('active');
-    document.getElementById('tab-status-content').classList.remove('hidden');
-  }
-}
-
-function searchUser() {
-  const query = document.getElementById('search-email-input').value.trim().toLowerCase();
-  const resultsDiv = document.getElementById('search-results');
-
-  if (!query || query === currentUserEmail) {
-    resultsDiv.classList.add('hidden');
-    return;
-  }
-
-  db.collection('users').where('email', '>=', query).where('email', '<=', query + '\uf8ff').get()
-    .then((snapshot) => {
-      resultsDiv.innerHTML = '';
-      if (snapshot.empty) { resultsDiv.classList.add('hidden'); return; }
-      resultsDiv.classList.remove('hidden');
-      snapshot.forEach((doc) => {
-        const u = doc.data();
-        if (u.email === currentUserEmail) return;
-
-        const div = document.createElement('div');
-        div.className = 'user-item';
-        div.innerHTML = `
-          <span>${u.email}</span>
-          <button onclick="sendFriendRequest('${u.email}')" style="background:#00a884; color:white; border:none; padding:5px 10px; border-radius:4px;">Add</button>
-        `;
-        resultsDiv.appendChild(div);
-      });
-    });
-}
-
-function sendFriendRequest(targetEmail) {
-  db.collection('chats').doc(`${currentUserEmail}_${targetEmail}`).set({
-    users: [currentUserEmail, targetEmail]
-  }).then(() => {
-    alert("Chat Started!");
-    document.getElementById('search-results').classList.add('hidden');
-  });
-}
-
-function listenAcceptedChats() {
-  db.collection('chats').where('users', 'array-contains', currentUserEmail)
-    .onSnapshot((snapshot) => {
-      const chatList = document.getElementById('recent-chats-list');
-      if (!chatList) return;
-      chatList.innerHTML = '';
-
-      snapshot.forEach((doc) => {
-        const users = doc.data().users;
-        const partner = users.find(u => u !== currentUserEmail);
-
-        if (partner) {
-          db.collection('users').doc(partner).get().then(pDoc => {
-            const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
-            const card = document.createElement('div');
-            card.className = 'chat-card';
-            card.onclick = () => openChatRoom(partner, pData);
-            card.innerHTML = `
-              <img src="${pData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
-              <div>
-                <b>${pData.displayName || partner.split('@')[0]}</b>
-                <p style="font-size:12px; color:#8696a0;">Tap to chat</p>
-              </div>
-            `;
-            chatList.appendChild(card);
-          });
-        }
-      });
-    });
-}
-
-// 4. CHAT ROOM & MESSAGES WITH DELETE OPTION
-function openChatRoom(partner, partnerData) {
-  currentActivePartner = partner;
-  const ids = [currentUserEmail, partner].sort();
-  activeRoomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
-
-  showScreen('screen-chat');
-  document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
-  document.getElementById('chat-header-avatar').src = partnerData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-
-  db.collection('rooms').doc(activeRoomId).collection('messages')
-    .orderBy('timestamp', 'asc')
-    .onSnapshot((snapshot) => {
-      const chatBox = document.getElementById('chat-box');
-      chatBox.innerHTML = '';
-
-      snapshot.forEach((doc) => {
-        renderMessage(doc.data(), doc.id);
-      });
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-}
-
-function sendMessage() {
-  const input = document.getElementById('msg-input');
-  const text = input.value.trim();
-  if (!text) return;
-
-  db.collection('rooms').doc(activeRoomId).collection('messages').add({
-    type: 'text',
-    text: encryptText(text),
-    sender: currentUserEmail,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  input.value = '';
-}
-
-function deleteMessage(msgId, senderEmail) {
-  if (senderEmail !== currentUserEmail) {
-    alert("You can only delete your own messages!");
-    return;
-  }
-  if (confirm("Delete this message?")) {
-    db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete();
-  }
-}
-
-function renderMessage(msg, msgId) {
-  const chatBox = document.getElementById('chat-box');
-  const div = document.createElement('div');
-  const isMe = msg.sender === currentUserEmail;
-  div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
-
-  let deleteBtnHtml = isMe ? `<i class="fa-solid fa-trash" onclick="deleteMessage('${msgId}', '${msg.sender}')" style="margin-left:8px; cursor:pointer; font-size:11px; opacity:0.7;"></i>` : '';
-
-  div.innerHTML = `
-    <span>${decryptText(msg.text)}</span>
-    <span class="msg-meta">${deleteBtnHtml}</span>
-  `;
-  chatBox.appendChild(div);
 }
 
 function showScreen(id) {

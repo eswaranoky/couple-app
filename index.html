@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title id="app-title-head">WhatsApp Web</title>
+  <title>WhatsApp</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#075e54">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- PeerJS Direct WebRTC Library -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
@@ -19,91 +16,40 @@
     <div id="screen-login" class="screen active">
       <div class="auth-box">
         <i class="fa-brands fa-whatsapp main-icon"></i>
-        <h2>Welcome</h2>
-        <p class="subtitle">Sign in with Google to continue</p>
+        <h2>WhatsApp</h2>
+        <p class="subtitle">Sign in to continue</p>
         <button class="google-btn" onclick="loginWithGoogle()">
           <i class="fa-brands fa-google"></i> Continue with Google
         </button>
       </div>
     </div>
 
-    <!-- SCREEN 1.5: PWA INSTALL SCREEN -->
-    <div id="screen-install" class="screen">
-      <div class="auth-box">
-        <i class="fa-solid fa-mobile-screen-button main-icon" style="color:#25d366;"></i>
-        <h2>Install Application</h2>
-        <p class="subtitle">Get the full native app experience on your phone!</p>
-        <button id="install-screen-btn" class="google-btn" style="background:#25d366;" onclick="installAppDirect()">
-          <i class="fa-solid fa-download"></i> Install App Now
-        </button>
-        <button onclick="skipInstallAndGoHome()" style="margin-top:15px; background:transparent; border:none; color:#666; cursor:pointer; font-weight:bold;">
-          Continue in Web Browser
-        </button>
-      </div>
-    </div>
-
-    <!-- SCREEN 2: HOME SCREEN WITH TABS (CHATS / STATUS) -->
+    <!-- SCREEN 2: HOME SCREEN (CHATS ONLY - STATUS REMOVED) -->
     <div id="screen-home" class="screen">
       <div class="chat-header">
-        <h3 id="app-display-title">WhatsApp</h3>
+        <h3>WhatsApp</h3>
         <div class="header-actions">
-          <i class="fa-solid fa-gear" onclick="openSettings()"></i>
-          <i class="fa-solid fa-right-from-bracket" onclick="logout()"></i>
+          <i class="fa-solid fa-ellipsis-vertical" onclick="toggleHomeMenu()"></i>
+        </div>
+        <!-- HOME THREE DOT MENU -->
+        <div id="home-menu" class="menu-dropdown hidden">
+          <div class="menu-item" onclick="openProfileView(currentUserData)"><i class="fa-solid fa-user"></i> My Profile</div>
+          <div class="menu-item" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
         </div>
       </div>
 
-      <!-- TABS HEADER -->
-      <div class="tab-header">
-        <div id="tab-chats-btn" class="tab-btn active" onclick="switchTab('chats')">CHATS</div>
-        <div id="tab-status-btn" class="tab-btn" onclick="switchTab('status')">STATUS</div>
+      <div class="search-section">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="email" id="search-email-input" placeholder="Search user by Email..." onkeyup="searchUser()">
+        </div>
+        <div id="search-results" class="search-results-list hidden"></div>
       </div>
 
-      <!-- TAB 1: CHATS VIEW -->
-      <div id="tab-chats-content" class="tab-content active">
-        <div class="search-section">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="email" id="search-email-input" placeholder="Search user by Email..." onkeyup="searchUser()">
-          </div>
-          <div id="search-results" class="search-results-list hidden"></div>
-        </div>
-
-        <div id="requests-section" class="requests-section hidden">
-          <h4>Friend Requests</h4>
-          <div id="requests-list"></div>
-        </div>
-
-        <div class="chat-list-section">
-          <h4>Chats</h4>
-          <div id="recent-chats-list"></div>
-        </div>
+      <div class="chat-list-section">
+        <h4>Chats</h4>
+        <div id="recent-chats-list"></div>
       </div>
-
-      <!-- TAB 2: STATUS VIEW -->
-      <div id="tab-status-content" class="tab-content hidden">
-        <div class="status-section">
-          <div class="my-status-card" style="display:flex; align-items:center; padding:15px; gap:15px;">
-            <div class="status-avatar-wrapper" onclick="triggerMyStatusAction()" style="position:relative; cursor:pointer;">
-              <img id="my-status-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="My Status">
-            </div>
-            <div class="status-info" onclick="triggerMyStatusAction()" style="flex:1; cursor:pointer;">
-              <b>My Status</b>
-              <p id="my-status-subtext" style="font-size:12px; color:#8696a0;">Tap to add status update</p>
-            </div>
-            <div class="status-actions-btns" style="display:flex; gap:15px; font-size:18px;">
-              <label for="status-file-input" style="cursor:pointer;" title="Add Photo Status">
-                <i class="fa-solid fa-camera"></i>
-              </label>
-              <input type="file" id="status-file-input" accept="image/*" style="display:none;" onchange="uploadStatusPhoto(event)">
-              <i class="fa-solid fa-music" onclick="openAudioTextStatusModal()" style="cursor:pointer;" title="Add Text Status"></i>
-            </div>
-          </div>
-
-          <h4 style="margin: 15px 0 10px 15px; color: #00a884; font-size: 12px;">RECENT UPDATES</h4>
-          <div id="recent-statuses-list"></div>
-        </div>
-      </div>
-
     </div>
 
     <!-- SCREEN 3: INDIVIDUAL CHAT ROOM -->
@@ -111,18 +57,25 @@
       <div class="chat-header">
         <div class="user-info" style="display:flex; align-items:center; gap:10px;">
           <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()" style="cursor:pointer;"></i>
-          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width:35px; height:35px; border-radius:50%;">
-          <div>
-            <h4 id="chat-header-name" style="font-size:15px;">Name</h4>
-            <span class="status" style="font-size:11px; color:#25d366;">Online</span>
+          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width:38px; height:38px; border-radius:50%;" onclick="openActivePartnerProfile()">
+          <div onclick="openActivePartnerProfile()" style="cursor:pointer;">
+            <h4 id="chat-header-name" style="font-size:15px;">User</h4>
+            <span id="chat-header-status" class="user-status-text offline">Offline</span>
           </div>
         </div>
         <div class="header-actions">
           <i class="fa-solid fa-video call-btn" onclick="startCall('video')"></i>
           <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
+          <i class="fa-solid fa-ellipsis-vertical" onclick="toggleChatMenu()"></i>
+        </div>
+        <!-- CHAT THREE DOT MENU -->
+        <div id="chat-menu" class="menu-dropdown hidden">
+          <div class="menu-item" onclick="openActivePartnerProfile()"><i class="fa-solid fa-id-card"></i> View Profile</div>
+          <div class="menu-item" onclick="openColorPicker()"><i class="fa-solid fa-palette"></i> Chat Theme Color</div>
         </div>
       </div>
 
+      <!-- MESSAGES DISPLAY AREA -->
       <div class="chat-messages" id="chat-box"></div>
 
       <!-- INPUT AREA -->
@@ -138,7 +91,33 @@
       </div>
     </div>
 
-    <!-- REAL-TIME FULLSCREEN VIDEO & VOICE CALL MODAL -->
+    <!-- MODAL 1: PROFILE VIEW -->
+    <div id="profile-modal" class="custom-modal hidden">
+      <div class="modal-content">
+        <i class="fa-solid fa-xmark" onclick="closeModal('profile-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
+        <h3 id="profile-modal-name">User Profile</h3>
+        <img id="profile-modal-img" class="profile-img-large" src="" alt="Profile Photo">
+        <p id="profile-modal-email" style="color:#8696a0; font-size:13px;"></p>
+        <p id="profile-modal-bio" style="margin-top:10px; font-size:14px;"></p>
+      </div>
+    </div>
+
+    <!-- MODAL 2: CHAT WALLPAPER COLOR PICKER -->
+    <div id="color-modal" class="custom-modal hidden">
+      <div class="modal-content">
+        <i class="fa-solid fa-xmark" onclick="closeModal('color-modal')" style="position:absolute; top:15px; right:15px; font-size:20px; cursor:pointer;"></i>
+        <h3>Choose Chat Color</h3>
+        <div class="color-options">
+          <div class="color-box" style="background:#0b141a;" onclick="setChatBgColor('#0b141a')"></div>
+          <div class="color-box" style="background:#1a232a;" onclick="setChatBgColor('#1a232a')"></div>
+          <div class="color-box" style="background:#0f2027;" onclick="setChatBgColor('#0f2027')"></div>
+          <div class="color-box" style="background:#1e1b18;" onclick="setChatBgColor('#1e1b18')"></div>
+          <div class="color-box" style="background:#28161c;" onclick="setChatBgColor('#28161c')"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REAL-TIME VIDEO CALL MODAL -->
     <div id="call-modal" class="hidden">
       <div class="call-header-overlay">
         <h4 id="call-partner-name">User Name</h4>
@@ -151,16 +130,15 @@
       </div>
 
       <div class="call-controls-bar">
-        <button id="btn-toggle-mic" class="call-btn-circle" onclick="toggleMuteMic()" title="Mute/Unmute Mic">
+        <button id="btn-toggle-mic" class="call-btn-circle" onclick="toggleMuteMic()">
           <i class="fa-solid fa-microphone"></i>
         </button>
 
-        <!-- RED CUT CALL BUTTON -->
-        <button class="call-btn-circle call-btn-end" onclick="endCall()" title="End Call">
+        <button class="call-btn-circle call-btn-end" onclick="endCall()">
           <i class="fa-solid fa-phone-slash"></i>
         </button>
 
-        <button id="btn-toggle-cam" class="call-btn-circle" onclick="toggleCamera()" title="Turn Off/On Camera">
+        <button id="btn-toggle-cam" class="call-btn-circle" onclick="toggleCamera()">
           <i class="fa-solid fa-video"></i>
         </button>
       </div>
