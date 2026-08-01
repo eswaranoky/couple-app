@@ -85,7 +85,7 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. SYSTEM POP-UP NOTIFICATION PERMISSIONS & HANDLERS
+// 2. POP-UP NOTIFICATION PERMISSIONS
 function requestNotificationPermission() {
   if ("Notification" in window) {
     if (Notification.permission !== "granted") {
@@ -373,7 +373,7 @@ function sendViewOnceMessage(e) {
   });
 }
 
-// 6. STATUS LOGIC (UPLOAD, VIEW, SONG STATUS)
+// 6. STATUS LOGIC
 function uploadStatusPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -539,15 +539,16 @@ function deleteMyStatus() {
   }
 }
 
-// 7. FIXED CALL SYSTEM (NO MODERATOR / NO LOGIN REQUIRED)
+// 7. 100% FIXED CALL SYSTEM (USES MIROTALK P2P - ZERO LOGIN / NO AUTHENTICATION REQUIRED)
 function startCall(type) {
-  // Strip out special characters like '@' and '.' so Jitsi room name won't ask for moderator permissions
   const cleanUser = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   const cleanPartner = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
-  const roomId = "CoupleAppRoom" + [cleanUser, cleanPartner].sort().join("");
-  
-  const isVideoMuted = (type === 'voice');
-  const fullCallUrl = `https://8x8.vc/vpaas-magic-cookie-43b67e78117743dca59bfb1ba84d28f8/${roomId}#config.startWithVideoMuted=${isVideoMuted}&config.prejoinPageEnabled=false&config.requireDisplayName=false`;
+  const roomId = "coupleapp" + [cleanUser, cleanPartner].sort().join("");
+
+  // MiroTalk WebRTC Frame (No login required, auto-connects audio/video)
+  const isAudioOnly = (type === 'voice') ? '?audio=true&video=false' : '?audio=true&video=true';
+  const myName = encodeURIComponent(currentUserEmail.split('@')[0]);
+  const fullCallUrl = `https://p2p.mirotalk.com/join/${roomId}${isAudioOnly}&name=${myName}`;
 
   document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
   document.getElementById('jitsi-iframe').src = fullCallUrl;
