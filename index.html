@@ -60,7 +60,6 @@
 
       <!-- TAB 1: CHATS VIEW -->
       <div id="tab-chats-content" class="tab-content active">
-        <!-- SEARCH BAR -->
         <div class="search-section">
           <div class="search-box">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -69,13 +68,11 @@
           <div id="search-results" class="search-results-list hidden"></div>
         </div>
 
-        <!-- PENDING REQUESTS -->
         <div id="requests-section" class="requests-section hidden">
           <h4>Friend Requests</h4>
           <div id="requests-list"></div>
         </div>
 
-        <!-- RECENT CHATS LIST -->
         <div class="chat-list-section">
           <h4>Chats</h4>
           <div id="recent-chats-list"></div>
@@ -85,27 +82,24 @@
       <!-- TAB 2: STATUS VIEW -->
       <div id="tab-status-content" class="tab-content hidden">
         <div class="status-section">
-          <!-- MY STATUS CARD -->
-          <div class="my-status-card">
-            <div class="status-avatar-wrapper" onclick="triggerMyStatusAction()">
+          <div class="my-status-card" style="display:flex; align-items:center; padding:15px; gap:15px;">
+            <div class="status-avatar-wrapper" onclick="triggerMyStatusAction()" style="position:relative; cursor:pointer;">
               <img id="my-status-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="My Status">
-              <span class="add-status-plus">+</span>
             </div>
-            <div class="status-info" onclick="triggerMyStatusAction()">
+            <div class="status-info" onclick="triggerMyStatusAction()" style="flex:1; cursor:pointer;">
               <b>My Status</b>
-              <p id="my-status-subtext">Tap to add status update</p>
+              <p id="my-status-subtext" style="font-size:12px; color:#8696a0;">Tap to add status update</p>
             </div>
-            <div class="status-actions-btns">
-              <label for="status-file-input" class="status-icon-btn" title="Add Photo Status">
+            <div class="status-actions-btns" style="display:flex; gap:15px; font-size:18px;">
+              <label for="status-file-input" style="cursor:pointer;" title="Add Photo Status">
                 <i class="fa-solid fa-camera"></i>
               </label>
               <input type="file" id="status-file-input" accept="image/*" style="display:none;" onchange="uploadStatusPhoto(event)">
-              
-              <i class="fa-solid fa-music status-icon-btn" onclick="openAudioTextStatusModal()" title="Add Text with Song Status"></i>
+              <i class="fa-solid fa-music" onclick="openAudioTextStatusModal()" style="cursor:pointer;" title="Add Text Status"></i>
             </div>
           </div>
 
-          <h4 style="margin: 15px 0 10px 0; color: #666; font-size: 13px;">RECENT UPDATES</h4>
+          <h4 style="margin: 15px 0 10px 15px; color: #00a884; font-size: 12px;">RECENT UPDATES</h4>
           <div id="recent-statuses-list"></div>
         </div>
       </div>
@@ -115,23 +109,17 @@
     <!-- SCREEN 3: INDIVIDUAL CHAT ROOM -->
     <div id="screen-chat" class="screen">
       <div class="chat-header">
-        <div class="user-info">
-          <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()"></i>
-          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
+        <div class="user-info" style="display:flex; align-items:center; gap:10px;">
+          <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()" style="cursor:pointer;"></i>
+          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width:35px; height:35px; border-radius:50%;">
           <div>
-            <h4 id="chat-header-name">Name</h4>
-            <span class="status">Online</span>
+            <h4 id="chat-header-name" style="font-size:15px;">Name</h4>
+            <span class="status" style="font-size:11px; color:#25d366;">Online</span>
           </div>
         </div>
         <div class="header-actions">
           <i class="fa-solid fa-video call-btn" onclick="startCall('video')"></i>
           <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
-          <div class="dropdown">
-            <i class="fa-solid fa-ellipsis-vertical dropbtn" onclick="toggleChatHeaderMenu()"></i>
-            <div id="chat-header-menu" class="dropdown-content hidden">
-              <a onclick="editPartnerNickname()"><i class="fa-solid fa-pen"></i> Edit Name</a>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -144,117 +132,37 @@
         </label>
         <input type="file" id="img-attach" accept="image/*" style="display:none;" onchange="sendMediaMessage(event)">
 
-        <label for="viewonce-attach" class="attach-btn viewonce-btn" title="Send View Once Photo">
-          <i class="fa-solid fa-1"></i>
-        </label>
-        <input type="file" id="viewonce-attach" accept="image/*" style="display:none;" onchange="sendViewOnceMessage(event)">
+        <input type="text" id="msg-input" placeholder="Type a message...">
 
-        <input type="text" id="msg-input" placeholder="Type an encrypted message...">
+        <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane" style="color:#00a884;"></i></button>
+      </div>
+    </div>
 
-        <button id="voice-btn" onmousedown="startRecording()" onmouseup="stopRecording()" class="mic-btn" title="Hold to record audio">
+    <!-- REAL-TIME FULLSCREEN VIDEO & VOICE CALL MODAL -->
+    <div id="call-modal" class="hidden">
+      <div class="call-header-overlay">
+        <h4 id="call-partner-name">User Name</h4>
+        <p id="call-type-title">Video Call Active</p>
+      </div>
+
+      <div class="video-container">
+        <video id="remote-video-stream" autoplay playsinline></video>
+        <video id="local-video-stream" autoplay playsinline muted></video>
+      </div>
+
+      <div class="call-controls-bar">
+        <button id="btn-toggle-mic" class="call-btn-circle" onclick="toggleMuteMic()" title="Mute/Unmute Mic">
           <i class="fa-solid fa-microphone"></i>
         </button>
 
-        <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
-      </div>
-    </div>
-
-    <!-- SCREEN 4: SETTINGS -->
-    <div id="screen-settings" class="screen">
-      <div class="settings-header">
-        <i class="fa-solid fa-arrow-left" onclick="openHome()"></i>
-        <h3>Settings</h3>
-      </div>
-      <div class="settings-body">
-        <div class="profile-preview-box">
-          <img id="settings-avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
-          <label for="profile-pic-file" class="change-photo-btn"><i class="fa-solid fa-camera"></i> Change Photo</label>
-          <input type="file" id="profile-pic-file" accept="image/*" style="display:none;" onchange="handleProfilePhoto(event)">
-        </div>
-
-        <div class="input-group">
-          <label><i class="fa-solid fa-user"></i> Display Name</label>
-          <input type="text" id="edit-display-name" placeholder="Your Name">
-        </div>
-
-        <div class="input-group">
-          <label><i class="fa-solid fa-circle-info"></i> About / Bio</label>
-          <input type="text" id="edit-user-bio" placeholder="Hey there! I am using WhatsApp.">
-        </div>
-
-        <button id="save-settings-btn" onclick="saveSettings()">Save Changes</button>
-      </div>
-    </div>
-
-    <!-- AUDIO + TEXT STATUS CREATOR MODAL -->
-    <div id="audio-status-modal" class="modal hidden">
-      <div class="modal-header">
-        <span style="color:white; font-weight:bold;">Create Music / Text Status</span>
-        <span class="close-modal" onclick="closeAudioStatusModal()">&times;</span>
-      </div>
-      <div class="modal-body" style="flex-direction: column; gap: 15px; padding: 20px; background:#1e272e;">
-        <input type="text" id="status-song-text" placeholder="Type status quote / text..." style="width:100%; padding:12px; border-radius:8px; border:none; outline:none; font-size:16px;">
-        
-        <div style="width:100%; color:white; font-size:13px;">
-          <label style="display:block; margin-bottom:5px;"><i class="fa-solid fa-music"></i> Choose Background Song (Optional MP3):</label>
-          <input type="file" id="status-audio-input" accept="audio/*" style="color:white; width:100%;">
-        </div>
-
-        <button onclick="saveAudioTextStatus()" style="background:#25d366; color:white; border:none; padding:12px 25px; border-radius:20px; font-weight:bold; cursor:pointer; width:100%;">
-          Post Status
+        <!-- RED CUT CALL BUTTON -->
+        <button class="call-btn-circle call-btn-end" onclick="endCall()" title="End Call">
+          <i class="fa-solid fa-phone-slash"></i>
         </button>
-      </div>
-    </div>
 
-    <!-- STATUS VIEWER MODAL -->
-    <div id="status-viewer-modal" class="modal hidden">
-      <div class="modal-header">
-        <div class="user-info">
-          <span class="close-modal" onclick="closeStatusViewer()">&times;</span>
-          <img id="status-user-avatar" src="" alt="Avatar" style="width:30px; height:30px; border-radius:50%;">
-          <div>
-            <h5 id="status-user-name" style="color:white; font-size:14px;">User</h5>
-            <span id="status-time" style="color:#ccc; font-size:10px;">Just now</span>
-          </div>
-        </div>
-        <div id="my-status-owner-actions" class="hidden">
-          <i class="fa-solid fa-trash" style="color:#e74c3c; font-size:18px; cursor:pointer;" onclick="deleteMyStatus()" title="Delete Status"></i>
-        </div>
-      </div>
-      <div class="modal-body" style="background:#111;">
-        <div id="status-text-display" class="hidden" style="color:white; font-size:22px; text-align:center; padding:20px; font-weight:bold;"></div>
-        <img id="status-img-display" class="hidden" src="" alt="Status Image">
-      </div>
-    </div>
-
-    <!-- PHOTO VIEWER MODAL -->
-    <div id="photo-viewer-modal" class="modal hidden">
-      <div class="modal-header">
-        <span class="close-modal" onclick="closePhotoViewer()">&times;</span>
-        <div class="dropdown">
-          <i class="fa-solid fa-ellipsis-vertical dropbtn" onclick="togglePhotoMenu()"></i>
-          <div id="photo-menu" class="dropdown-content hidden">
-            <a id="hd-download-link" download="photo_hd.jpg" target="_blank"><i class="fa-solid fa-download"></i> Download HD Image</a>
-            <a onclick="openFullImageWindow()"><i class="fa-solid fa-up-right-and-pointer"></i> Open in New Tab</a>
-          </div>
-        </div>
-      </div>
-      <div class="modal-body">
-        <img id="modal-viewer-img" src="" alt="View Photo">
-      </div>
-    </div>
-
-    <!-- CALL MODAL (NATIVE WEBRTC CALL WINDOW WITH DUAL VIDEO STREAMS) -->
-    <div id="call-modal" class="modal hidden">
-      <div class="modal-header">
-        <span id="call-type-title">Call Active</span>
-        <span class="close-modal" onclick="endCall()">&times;</span>
-      </div>
-      <div class="modal-body call-container" id="video-wrapper" style="position:relative; background:#000; display:flex; justify-content:center; align-items:center;">
-        <!-- Remote Video (Partner) -->
-        <video id="remote-video-stream" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;"></video>
-        <!-- Local Video (Self Preview in corner) -->
-        <video id="local-video-stream" autoplay playsinline muted style="width:110px; height:150px; object-fit:cover; position:absolute; bottom:20px; right:20px; border-radius:10px; border:2px solid white; z-index:10; background:#222;"></video>
+        <button id="btn-toggle-cam" class="call-btn-circle" onclick="toggleCamera()" title="Turn Off/On Camera">
+          <i class="fa-solid fa-video"></i>
+        </button>
       </div>
     </div>
 
