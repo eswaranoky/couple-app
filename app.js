@@ -50,7 +50,7 @@ function installAppDirect() {
 
 function skipInstallAndGoHome() { openHome(); }
 
-// 1. AUTO LOGIN & PERMISSIONS
+// 1. AUTO LOGIN & INITIAL SETUP
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUserEmail = user.email.toLowerCase();
@@ -85,28 +85,41 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. REQUEST NOTIFICATION PERMISSION
+// 2. SYSTEM POP-UP NOTIFICATION PERMISSIONS & HANDLERS
 function requestNotificationPermission() {
   if ("Notification" in window) {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        console.log("Notification permission granted!");
-      }
-    });
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          console.log("Notification permission granted!");
+        }
+      });
+    }
   }
 }
 
 function showBackgroundPopUp(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, {
+    const options = {
       body: body,
       icon: "https://cdn-icons-png.flaticon.com/512/134/134937.png",
-      vibrate: [200, 100, 200]
-    });
+      badge: "https://cdn-icons-png.flaticon.com/512/134/134937.png",
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true,
+      renotify: true,
+      tag: "couple-app-msg"
+    };
+
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.showNotification(title, options);
+      });
+    } else {
+      new Notification(title, options);
+    }
   }
 }
 
-// Listen globally for incoming messages to trigger pop-up
 function listenIncomingMessagesGlobally() {
   db.collection('chats').where('users', 'array-contains', currentUserEmail)
     .onSnapshot(snapshot => {
@@ -131,7 +144,7 @@ function listenIncomingMessagesGlobally() {
     });
 }
 
-// 3. HOME SCREEN & TABS
+// 3. HOME SCREEN & TAB SYSTEM
 function openHome() {
   showScreen('screen-home');
   requestNotificationPermission();
@@ -268,7 +281,7 @@ function listenAcceptedChats() {
     });
 }
 
-// 4. CHAT ROOM
+// 4. CHAT ROOM FUNCTIONALITY
 function openChatRoom(partner, partnerData) {
   currentActivePartner = partner;
   const ids = [currentUserEmail, partner].sort();
@@ -313,7 +326,7 @@ function editPartnerNickname() {
   }
 }
 
-// 5. MESSAGES
+// 5. SENDING MESSAGES
 function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
@@ -360,7 +373,7 @@ function sendViewOnceMessage(e) {
   });
 }
 
-// 6. STATUS LOGIC
+// 6. STATUS LOGIC (UPLOAD, VIEW, SONG STATUS)
 function uploadStatusPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -526,14 +539,15 @@ function deleteMyStatus() {
   }
 }
 
-// 7. DIRECT VIDEO & VOICE CALLS (NO LOGIN / AUTO CONNECT)
+// 7. FIXED CALL SYSTEM (NO MODERATOR / NO LOGIN REQUIRED)
 function startCall(type) {
-  const roomId = "CallRoom_" + activeRoomId.replace(/[^a-zA-Z0-9]/g, "");
+  // Strip out special characters like '@' and '.' so Jitsi room name won't ask for moderator permissions
+  const cleanUser = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
+  const cleanPartner = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
+  const roomId = "CoupleAppRoom" + [cleanUser, cleanPartner].sort().join("");
   
-  // Params added to skip login screens and auto-join audio/video directly
-  const jitsiDomain = "meet.jit.si";
-  const jitsiConfig = `#config.startWithVideoMuted=${type === 'voice'}&config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.SHOW_JITSI_WATERMARK=false`;
-  const fullCallUrl = `https://${jitsiDomain}/${roomId}${jitsiConfig}`;
+  const isVideoMuted = (type === 'voice');
+  const fullCallUrl = `https://8x8.vc/vpaas-magic-cookie-43b67e78117743dca59bfb1ba84d28f8/${roomId}#config.startWithVideoMuted=${isVideoMuted}&config.prejoinPageEnabled=false&config.requireDisplayName=false`;
 
   document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
   document.getElementById('jitsi-iframe').src = fullCallUrl;
@@ -609,7 +623,7 @@ function stopRecording() {
   });
 }
 
-// 10. RENDER MESSAGES
+// 10. RENDER MESSAGES WITH ORANGE TICKS
 function renderMessage(msg, msgId) {
   const chatBox = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -645,7 +659,7 @@ function renderMessage(msg, msgId) {
   chatBox.appendChild(div);
 }
 
-// 11. PROFILE SETTINGS UPDATE
+// 11. PROFILE SETTINGS
 function openSettings() {
   showScreen('screen-settings');
   history.pushState({ page: 'settings' }, "Settings", "#settings");
