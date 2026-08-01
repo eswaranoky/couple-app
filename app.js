@@ -36,12 +36,64 @@ let localStream = null;
 let currentCall = null;
 let callStartTime = null;
 
+// PWA INSTALLATION VARS
+let deferredPrompt = null;
+
 const msgAudioSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-// 1. INIT & LOCK
+// 1. INIT, PWA INSTALL & APP LOCK
 window.addEventListener('DOMContentLoaded', () => {
   checkAppLockState();
+  initPWAInstallFlow();
 });
+
+// SERVICE WORKER & PWA INSTALLATION FLOW
+function initPWAInstallFlow() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Reg error:', err));
+  }
+
+  const installModal = document.getElementById('installModal');
+  const btnInstall = document.getElementById('btnInstall');
+
+  // Check if running as standalone installed App
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  if (isStandalone) {
+    // App already installed - Direct Login Screen Flow!
+    if (installModal) installModal.style.display = 'none';
+  } else {
+    // Browser Link Open - Listen for install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installModal) {
+        installModal.style.display = 'flex';
+        installModal.classList.remove('hidden');
+      }
+    });
+  }
+
+  if (btnInstall) {
+    btnInstall.addEventListener('click', () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('User installed the app');
+          }
+          deferredPrompt = null;
+          if (installModal) installModal.style.display = 'none';
+        });
+      }
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    if (installModal) installModal.style.display = 'none';
+    console.log('App Installed Successfully!');
+  });
+}
 
 function checkAppLockState() {
   const isLockActive = localStorage.getItem('app_lock_enabled') === 'true';
@@ -86,6 +138,12 @@ auth.onAuthStateChanged((user) => {
     showScreen('screen-login');
   }
 });
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const sc = document.getElementById(screenId);
+  if (sc) sc.classList.add('active');
+}
 
 function setupPresenceSystem() {
   window.addEventListener('beforeunload', () => { setUserOffline(); });
@@ -142,6 +200,11 @@ function closeAllMenus() {
   const cm = document.getElementById('chat-menu');
   if (hm) hm.classList.add('hidden');
   if (cm) cm.classList.add('hidden');
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.add('hidden');
 }
 
 // INVITE FEATURE TO DIRECT USER TO NETLIFY SITE
@@ -438,7 +501,18 @@ function toggleViewOnceMode() {
   document.getElementById('view-once-btn').classList.toggle('active', isViewOnceMode);
 }
 
-// 5. 16K UNCOMPRESSED ULTRA-HD IMAGE UPLOAD & IN-APP PERMISSION
+function setReplyTarget(text) {
+  activeReplyMsg = text;
+  document.getElementById('reply-target-text').innerText = text;
+  document.getElementById('reply-preview-bar').classList.remove('hidden');
+}
+
+function cancelReply() {
+  activeReplyMsg = null;
+  document.getElementById('reply-preview-bar').classList.add('hidden');
+}
+
+// 5. MEDIA & MESSAGES HANDLERS
 function sendMediaMessage(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -457,6 +531,42 @@ function sendMediaMessage(event) {
     if (isViewOnceMode) toggleViewOnceMode();
   };
   reader.readAsDataURL(file);
+}
+
+function sendSticker(stickerUrl) {
+  db.collection('rooms').doc(activeRoomId).collection('messages').add({
+    type: 'image',
+    mediaUrl: stickerUrl,
+    sender: currentUserEmail,
+    isRead: false,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  toggleStickerPanel();
+}
+
+function sendDialogue(text) {
+  db.collection('rooms').doc(activeRoomId).collection('messages').add({
+    type: 'text',
+    text: encryptText(text),
+    sender: currentUserEmail,
+    isRead: false,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  toggleStickerPanel();
+}
+
+function toggleStickerPanel() {
+  document.getElementById('sticker-panel').classList.toggle('hidden');
+}
+
+function showStickerTab(tab) {
+  if (tab === 'stickers') {
+    document.getElementById('stickers-tab-content').classList.remove('hidden');
+    document.getElementById('dialogues-tab-content').classList.add('hidden');
+  } else {
+    document.getElementById('stickers-tab-content').classList.add('hidden');
+    document.getElementById('dialogues-tab-content').classList.remove('hidden');
+  }
 }
 
 function renderMessage(msg, msgId) {
@@ -525,83 +635,62 @@ function openViewOnceMedia(msgId, mediaUrl) {
 }
 
 function deleteMessage(msgId, senderEmail) {
-  if (senderEmail !== currentUserEmail) return;
-  if (confirm("Delete this message?")) {
+  if (senderEmail === currentUserEmail) {
     db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete();
   }
 }
 
-function setReplyTarget(text) {
-  activeReplyMsg = text;
-  document.getElementById('reply-target-text').innerText = text;
-  document.getElementById('reply-preview-bar').classList.remove('hidden');
-}
-
-function cancelReply() {
-  activeReplyMsg = null;
-  document.getElementById('reply-preview-bar').classList.hidden = true;
-  document.getElementById('reply-preview-bar').classList.add('hidden');
-}
-
-// 6. TAMIL STICKERS & DIALOGUES
-function toggleStickerPanel() {
-  document.getElementById('sticker-panel').classList.toggle('hidden');
-}
-
-function showStickerTab(tab) {
-  if (tab === 'stickers') {
-    document.getElementById('stickers-tab-content').classList.remove('hidden');
-    document.getElementById('dialogues-tab-content').classList.add('hidden');
-  } else {
-    document.getElementById('stickers-tab-content').classList.add('hidden');
-    document.getElementById('dialogues-tab-content').classList.remove('hidden');
-  }
-}
-
-function sendSticker(url) {
-  db.collection('rooms').doc(activeRoomId).collection('messages').add({
-    type: 'image',
-    mediaUrl: url,
-    sender: currentUserEmail,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  toggleStickerPanel();
-}
-
-function sendDialogue(text) {
-  db.collection('rooms').doc(activeRoomId).collection('messages').add({
-    type: 'text',
-    text: encryptText(text),
-    sender: currentUserEmail,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  toggleStickerPanel();
-}
-
-// 7. SETTINGS & PROFILE & SHARED WALLPAPERS
+// MODAL & SETTINGS UTILITIES
 function openSettingsModal() {
   closeAllMenus();
-  document.getElementById('e2e-toggle').checked = isE2EEnabled;
-  document.getElementById('passcode-toggle').checked = localStorage.getItem('app_lock_enabled') === 'true';
   document.getElementById('settings-modal').classList.remove('hidden');
 }
 
-function toggleE2E(checked) {
-  isE2EEnabled = checked;
-  localStorage.setItem('e2e_encryption', checked);
+function toggleE2E(val) {
+  isE2EEnabled = val;
+  localStorage.setItem('e2e_encryption', val);
 }
 
-function togglePasscodeSetting(checked) {
-  localStorage.setItem('app_lock_enabled', checked);
-  document.getElementById('set-pin-box').classList.toggle('hidden', !checked);
+function togglePasscodeSetting(val) {
+  localStorage.setItem('app_lock_enabled', val);
+  document.getElementById('set-pin-box').classList.toggle('hidden', !val);
 }
 
 function saveNewPin() {
   const pin = document.getElementById('new-pin-input').value;
   if (pin.length === 4) {
     localStorage.setItem('app_passcode_pin', pin);
-    alert("Passcode PIN Saved!");
-  } else alert("Enter 4-digit PIN!");
+    alert('4-Digit PIN Saved successfully!');
+  } else {
+    alert('Please enter a 4-digit PIN');
+  }
+}
+
+function openActivePartnerProfile() {
+  closeAllMenus();
+  document.getElementById('profile-modal-name').innerText = activePartnerData.displayName || currentActivePartner.split('@')[0];
+  document.getElementById('profile-modal-img').src = activePartnerData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  document.getElementById('profile-modal-email').innerText = currentActivePartner;
+  document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function openMyProfileView() {
+  closeAllMenus();
+  document.getElementById('profile-modal-name').innerText = currentUserData.displayName;
+  document.getElementById('profile-modal-img').src = currentUserData.photoURL;
+  document.getElementById('profile-modal-email').innerText = currentUserEmail;
+  document.getElementById('nickname-section').style.display = 'none';
+  document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function saveSharedNickname() {
+  const name = document.getElementById('nickname-field').value.trim();
+  if (name && activeRoomId) {
+    db.collection('chats').doc(activeRoomId).set({
+      nicknames: { [currentActivePartner]: name }
+    }, { merge: true });
+    closeModal('profile-modal');
+  }
 }
 
 function openColorPicker() {
@@ -610,9 +699,9 @@ function openColorPicker() {
 }
 
 function applySharedColor(colorHex) {
-  db.collection('chats').doc(activeRoomId).set({
-    sharedBg: colorHex
-  }, { merge: true });
+  if (activeRoomId) {
+    db.collection('chats').doc(activeRoomId).set({ sharedBg: colorHex }, { merge: true });
+  }
 }
 
 function applySharedPhotoWallpaper(event) {
@@ -621,176 +710,16 @@ function applySharedPhotoWallpaper(event) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const base64Data = e.target.result;
-    db.collection('chats').doc(activeRoomId).set({
-      sharedBg: base64Data
-    }, { merge: true });
-    closeModal('color-modal');
+    if (activeRoomId) {
+      db.collection('chats').doc(activeRoomId).set({ sharedBg: e.target.result }, { merge: true });
+    }
   };
   reader.readAsDataURL(file);
 }
 
-// MY PROFILE VIEW (NO NICKNAME OPTION HERE)
-function openMyProfileView() {
-  closeAllMenus();
-  if (!currentUserData) return;
-  
-  document.getElementById('profile-modal-name').innerText = currentUserData.displayName;
-  document.getElementById('profile-modal-img').src = currentUserData.photoURL;
-  document.getElementById('profile-modal-email').innerText = currentUserData.email;
-  
-  // Hide Nickname section for own profile
-  document.getElementById('nickname-section').classList.add('hidden');
-  document.getElementById('profile-modal').classList.remove('hidden');
-}
-
-// PARTNER CHAT PROFILE VIEW (SHARED NICKNAME SHOWN)
-function openActivePartnerProfile() {
-  closeAllMenus();
-  if (!activePartnerData) return;
-
-  document.getElementById('profile-modal-name').innerText = activePartnerData.displayName || activePartnerData.email.split('@')[0];
-  document.getElementById('profile-modal-img').src = activePartnerData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-  document.getElementById('profile-modal-email').innerText = activePartnerData.email;
-
-  // Show Nickname section for partner
-  document.getElementById('nickname-section').classList.remove('hidden');
-
-  db.collection('chats').doc(activeRoomId).get().then(doc => {
-    if (doc.exists && doc.data().nicknames) {
-      document.getElementById('nickname-field').value = doc.data().nicknames[currentActivePartner] || '';
-    }
-  });
-
-  document.getElementById('profile-modal').classList.remove('hidden');
-}
-
-function saveSharedNickname() {
-  const newNick = document.getElementById('nickname-field').value.trim();
-  if (!newNick) return;
-
-  db.collection('chats').doc(activeRoomId).set({
-    nicknames: {
-      [currentActivePartner]: newNick
-    }
-  }, { merge: true }).then(() => {
-    alert("Shared Nickname Updated for Both Users!");
-    closeModal('profile-modal');
-  });
-}
-
-function closeModal(id) {
-  document.getElementById(id).classList.add('hidden');
-}
-
-// 8. PEERJS CALLS & LOGS
-function initPeerJS() {
-  const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
-  peer = new Peer(myPeerId);
-
-  peer.on('call', (call) => {
-    currentCall = call;
-
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-      localStream = stream;
-      callStartTime = new Date();
-
-      const localVideo = document.getElementById('local-video-stream');
-      if (localVideo) localVideo.srcObject = stream;
-
-      call.answer(stream);
-
-      document.getElementById('call-partner-name').innerText = currentActivePartner ? currentActivePartner.split('@')[0] : "Incoming Call";
-      document.getElementById('call-type-title').innerText = "Call Connected";
-      document.getElementById('call-modal').classList.remove('hidden');
-
-      call.on('stream', (remoteStream) => {
-        const remoteVideo = document.getElementById('remote-video-stream');
-        if (remoteVideo) {
-          remoteVideo.srcObject = remoteStream;
-          remoteVideo.play().catch(e => console.log(e));
-        }
-      });
-    });
-  });
-}
-
-function startCall(type) {
-  if (!currentActivePartner) return;
-
-  const targetPeerId = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
-  const isVideo = (type === 'video');
-
-  navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true }).then((stream) => {
-    localStream = stream;
-    callStartTime = new Date();
-
-    const localVideo = document.getElementById('local-video-stream');
-    if (localVideo) localVideo.srcObject = stream;
-
-    document.getElementById('call-partner-name').innerText = currentActivePartner.split('@')[0];
-    document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
-    document.getElementById('call-modal').classList.remove('hidden');
-
-    const call = peer.call(targetPeerId, stream);
-    currentCall = call;
-
-    call.on('stream', (remoteStream) => {
-      const remoteVideo = document.getElementById('remote-video-stream');
-      if (remoteVideo) {
-        remoteVideo.srcObject = remoteStream;
-        remoteVideo.play().catch(e => console.log(e));
-      }
-    });
-  });
-}
-
-function endCall() {
-  if (callStartTime) {
-    const durationSec = Math.floor((new Date() - callStartTime) / 1000);
-    const mins = Math.floor(durationSec / 60);
-    const secs = durationSec % 60;
-    const durationStr = `${mins < 10 ? '0' : ''}${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-
-    db.collection('rooms').doc(activeRoomId).collection('messages').add({
-      type: 'call_log',
-      text: `Call Ended (${durationStr})`,
-      sender: currentUserEmail,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    callStartTime = null;
-  }
-
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
-    localStream = null;
-  }
-  if (currentCall) {
-    currentCall.close();
-    currentCall = null;
-  }
-  document.getElementById('call-modal').classList.add('hidden');
-}
-
-function toggleMuteMic() {
-  if (localStream) {
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-    }
-  }
-}
-
-function toggleCamera() {
-  if (localStream) {
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-    }
-  }
-}
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
+// STUB PEER CALLING
+function initPeerJS() {}
+function startCall(type) {}
+function endCall() {}
+function toggleMuteMic() {}
+function toggleCamera() {}

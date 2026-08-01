@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WhatsApp</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00a884">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -11,6 +13,20 @@
 <body>
 
   <div class="app-container">
+
+    <!-- PWA CUSTOM INSTALL POPUP MODAL -->
+    <div id="installModal" class="custom-modal hidden" style="background: rgba(0,0,0,0.85); z-index: 10000; display: none; align-items: center; justify-content: center;">
+      <div class="modal-content" style="text-align: center; max-width: 320px; padding: 25px; border-radius: 16px; background: #111b21; border: 1px solid #222d34; color: #e9edef;">
+        <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" width="70" alt="App Icon" style="margin-bottom: 12px;">
+        <h3 style="margin-bottom: 8px; color: #00a884;">Install WhatsApp</h3>
+        <p style="font-size: 13px; color: #8696a0; margin-bottom: 20px; line-height: 1.4;">
+          Install this app on your Home Screen for a faster, full-screen private chat experience.
+        </p>
+        <button id="btnInstall" style="background: #00a884; color: #fff; border: none; padding: 12px 20px; font-weight: bold; border-radius: 20px; cursor: pointer; width: 100%; font-size: 14px;">
+          <i class="fa-solid fa-download" style="margin-right: 6px;"></i> Install App
+        </button>
+      </div>
+    </div>
 
     <!-- APP LOCK OVERLAY -->
     <div id="app-lock-screen" class="lock-overlay hidden">
@@ -171,7 +187,7 @@
         <img id="profile-modal-img" class="profile-img-hd" src="" alt="Profile Photo">
         <p id="profile-modal-email" style="color:#8696a0; font-size:13px;"></p>
         
-        <!-- SHARED NICKNAME SECTION (Visible only in partner chat profile) -->
+        <!-- SHARED NICKNAME SECTION -->
         <div id="nickname-section" style="margin-top:15px; text-align:left;">
           <label style="font-size:12px; color:#00a884; font-weight:bold;">Shared Nickname:</label>
           <input type="text" id="nickname-field" class="nickname-input" placeholder="Set a nickname...">
