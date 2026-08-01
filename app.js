@@ -19,7 +19,7 @@ let roomId = "";
 let selectedReplyMsg = null;
 let profileBase64 = "";
 
-// 1. Google Auth Login
+// Google Login Function
 function loginWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(provider)
@@ -32,7 +32,7 @@ function loginWithGoogle() {
     });
 }
 
-// 2. Partner Linking Check
+// Check Partner Status
 function checkUserPartnerStatus() {
   const userDocRef = db.collection('users').doc(currentUserEmail);
   userDocRef.get().then((doc) => {
@@ -57,7 +57,7 @@ function linkPartner() {
   setupChatRoom();
 }
 
-// 3. Real-time Chat
+// Chat Room Logic
 function setupChatRoom() {
   const ids = [currentUserEmail, partnerEmail].sort();
   roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
