@@ -27,7 +27,7 @@ let peer = null;
 let localStream = null;
 let currentCall = null;
 
-// 1. ONLINE STATUS CONTROLLER & USER AUTH
+// 1. ONLINE STATUS CONTROLLER & USER AUTH (FLASH ISSUE FIXED HERE)
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUserEmail = user.email.toLowerCase();
@@ -47,8 +47,12 @@ auth.onAuthStateChanged((user) => {
 
     setupPresenceSystem();
     initPeerJS();
+    
+    // Login Screen Flash ஆகாமல் நேரடியா Home Screen-க்கு போகும்
+    showScreen('screen-home');
     openHome();
   } else {
+    // User login பண்ணலனா மட்டும் தான் Login Screen காட்டும்
     showScreen('screen-login');
   }
 });
@@ -259,9 +263,6 @@ function toggleBlockUser() {
 
 function deleteChatRoom() {
   if (confirm("Delete this chat and room history?")) {
-    const ids = [currentUserEmail, selectedChatPartner].sort();
-    const roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
-
     db.collection('chats').doc(`${currentUserEmail}_${selectedChatPartner}`).delete();
     db.collection('chats').doc(`${selectedChatPartner}_${currentUserEmail}`).delete();
     
