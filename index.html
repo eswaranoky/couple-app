@@ -3,120 +3,114 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Our Private Space 💖</title>
+  <title id="app-title-head">Our World 💖</title>
   <link rel="stylesheet" href="style.css">
-  <!-- PWA Manifest Link -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ff4757">
+  <meta name="theme-color" content="#075e54">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-  <!-- Top Banner for App Download -->
   <div id="install-banner" class="install-banner hidden">
-    <span>📲 Download our app for quick access!</span>
-    <button id="install-btn">Install App</button>
+    <span>📲 Install App for Quick Access!</span>
+    <button id="install-btn">Install</button>
   </div>
 
   <div class="app-container">
 
-    <!-- SCREEN 1: User Login -->
+    <!-- SCREEN 1: Phone OTP Login -->
     <div id="screen-login" class="screen active">
-      <h2>Welcome 💖</h2>
-      <p class="subtitle">Enter your login details</p>
-      <input type="text" id="my-username" placeholder="Your Username">
-      <input type="password" id="my-password" placeholder="Your Password">
-      <button onclick="goToPartnerLink()">Next ➔</button>
+      <div class="auth-box">
+        <i class="fa-brands fa-whatsapp main-icon"></i>
+        <h2>Phone Verification</h2>
+        <p class="subtitle">Enter your phone number</p>
+        
+        <input type="tel" id="phone-number" value="+91 " placeholder="+91 9876543210">
+        <div id="recaptcha-container"></div>
+        <button id="send-otp-btn" onclick="sendOTP()">Send OTP 📩</button>
+
+        <div id="otp-group" class="hidden">
+          <input type="text" id="otp-code" placeholder="Enter 6-digit OTP">
+          <button onclick="verifyOTP()">Verify OTP & Login 🔐</button>
+        </div>
+      </div>
     </div>
 
-    <!-- SCREEN 2: Partner Link (Two Keys, One Lock) -->
+    <!-- SCREEN 2: Partner Linking -->
     <div id="screen-partner" class="screen">
-      <h2>Congrats! Step 1 Done 🎉</h2>
-      <p class="subtitle">Enter your partner's credentials to unlock your chat room.</p>
-      <input type="text" id="partner-username" placeholder="Partner's Username">
-      <input type="password" id="partner-password" placeholder="Partner's Password">
-      <button onclick="unlockChat()">Unlock Private Room 🔐</button>
+      <div class="auth-box">
+        <i class="fa-solid fa-heart-circle-check main-icon"></i>
+        <h2>Link Partner</h2>
+        <p class="subtitle">Enter your partner's registered phone number to link your room.</p>
+        <input type="tel" id="partner-phone" value="+91 " placeholder="+91 Partner Number">
+        <button onclick="linkPartner()">Connect Room 💕</button>
+      </div>
     </div>
 
-    <!-- SCREEN 3: Private Chat Room -->
+    <!-- SCREEN 3: WhatsApp Style Chat UI -->
     <div id="screen-chat" class="screen">
       <div class="chat-header">
-        <h3>Our Private Room 💖</h3>
+        <div class="user-info">
+          <img id="header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
+          <div>
+            <h4 id="header-partner-name">Partner</h4>
+            <span class="status">Online</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <i class="fa-solid fa-video call-btn" onclick="startCall('video')"></i>
+          <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
+          <i class="fa-solid fa-gear" onclick="openSettings()"></i>
+        </div>
       </div>
-      <div class="chat-messages" id="chat-box">
-        <div class="message partner">Hey love! Welcome to our private space.</div>
+
+      <div class="chat-messages" id="chat-box"></div>
+
+      <div id="reply-preview" class="reply-preview hidden">
+        <div>
+          <small id="reply-to-user">Replying to...</small>
+          <p id="reply-to-text">Message text...</p>
+        </div>
+        <i class="fa-solid fa-xmark" onclick="cancelReply()"></i>
       </div>
+
       <div class="chat-input-area">
         <input type="text" id="msg-input" placeholder="Type a message...">
-        <button onclick="sendMessage()">Send</button>
+        <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: Settings Screen -->
+    <div id="screen-settings" class="screen">
+      <div class="settings-header">
+        <i class="fa-solid fa-arrow-left" onclick="closeSettings()"></i>
+        <h3>App & Profile Settings</h3>
+      </div>
+      <div class="settings-body">
+        <div class="profile-pic-section">
+          <img id="settings-preview-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+          <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" onchange="handleImageUpload(event)">
+          <button class="small-btn" onclick="document.getElementById('profile-pic-input').click()">Change Photo</button>
+        </div>
+
+        <div class="input-group">
+          <label>App Title Name:</label>
+          <input type="text" id="edit-app-name" placeholder="e.g. Our Private Space">
+        </div>
+
+        <div id="lock-warning" class="lock-notice hidden">
+          ⚠️ Note: Updating profile or app name will lock further edits for <b>1 Year (365 Days)</b>.
+        </div>
+
+        <button id="save-settings-btn" onclick="saveSettings()">Save Changes 🔒</button>
       </div>
     </div>
 
   </div>
 
-  <script>
-    // 1. Navigation Logic between screens
-    function goToPartnerLink() {
-      const user = document.getElementById('my-username').value;
-      const pass = document.getElementById('my-password').value;
-      if (user && pass) {
-        document.getElementById('screen-login').classList.remove('active');
-        document.getElementById('screen-partner').classList.add('active');
-      } else {
-        alert("Please enter your username and password!");
-      }
-    }
-
-    function unlockChat() {
-      const pUser = document.getElementById('partner-username').value;
-      const pPass = document.getElementById('partner-password').value;
-      if (pUser && pPass) {
-        document.getElementById('screen-partner').classList.remove('active');
-        document.getElementById('screen-chat').classList.add('active');
-      } else {
-        alert("Please enter partner details to verify!");
-      }
-    }
-
-    function sendMessage() {
-      const input = document.getElementById('msg-input');
-      if (input.value.trim() !== "") {
-        const chatBox = document.getElementById('chat-box');
-        const newMsg = document.createElement('div');
-        newMsg.className = 'message me';
-        newMsg.innerText = input.value;
-        chatBox.appendChild(newMsg);
-        input.value = "";
-        chatBox.scrollTop = chatBox.scrollHeight;
-      }
-    }
-
-    // 2. PWA App Download Prompt Logic
-    let deferredPrompt;
-    const installBanner = document.getElementById('install-banner');
-    const installBtn = document.getElementById('install-btn');
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installBanner.classList.remove('hidden'); // Show download banner
-    });
-
-    installBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          console.log('User installed the app!');
-        }
-        deferredPrompt = null;
-        installBanner.classList.add('hidden');
-      }
-    });
-
-    // 3. Service Worker Register
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
-    }
-  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
