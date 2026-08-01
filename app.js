@@ -539,26 +539,35 @@ function deleteMyStatus() {
   }
 }
 
-// 7. 100% FIXED CALL SYSTEM (USES MIROTALK P2P - ZERO LOGIN / NO AUTHENTICATION REQUIRED)
+// 7. 100% FIXED DIRECT CALL SYSTEM (BYPASSES LOGIN & QR CODE WELCOME SCREENS)
 function startCall(type) {
   const cleanUser = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   const cleanPartner = currentActivePartner.replace(/[^a-zA-Z0-9]/g, "");
-  const roomId = "coupleapp" + [cleanUser, cleanPartner].sort().join("");
+  
+  // Clean short room name
+  const roomHash = [cleanUser, cleanPartner].sort().join("").substring(0, 20);
+  const roomId = "coupleapp_" + roomHash;
 
-  // MiroTalk WebRTC Frame (No login required, auto-connects audio/video)
-  const isAudioOnly = (type === 'voice') ? '?audio=true&video=false' : '?audio=true&video=true';
+  // Jitsi Public Direct URL with prejoin bypass parameters
   const myName = encodeURIComponent(currentUserEmail.split('@')[0]);
-  const fullCallUrl = `https://p2p.mirotalk.com/join/${roomId}${isAudioOnly}&name=${myName}`;
+  const isAudioOnly = (type === 'voice') ? '#config.startAudioOnly=true' : '';
+  
+  // Directly loads call window without QR screen / login screen
+  const fullCallUrl = `https://meet.jit.si/${roomId}#userInfo.displayName="${myName}"&config.prejoinPageEnabled=false&config.skipMeetingPassword=true${isAudioOnly}`;
 
   document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
-  document.getElementById('jitsi-iframe').src = fullCallUrl;
+  
+  const iframe = document.getElementById('jitsi-iframe');
+  iframe.src = fullCallUrl;
+  
   document.getElementById('call-modal').classList.remove('hidden');
 
   showBackgroundPopUp(`Calling ${currentActivePartner.split('@')[0]}`, `Outgoing ${type} call initiated...`);
 }
 
 function endCall() {
-  document.getElementById('jitsi-iframe').src = "";
+  const iframe = document.getElementById('jitsi-iframe');
+  iframe.src = "about:blank"; // Cleanly close camera/mic stream
   document.getElementById('call-modal').classList.add('hidden');
 }
 
