@@ -40,7 +40,8 @@
           <i class="fa-solid fa-ellipsis-vertical" onclick="toggleHomeMenu()"></i>
         </div>
         <div id="home-menu" class="menu-dropdown hidden">
-          <div class="menu-item" onclick="openProfileView(currentUserData)"><i class="fa-solid fa-user"></i> My Profile</div>
+          <div class="menu-item" onclick="openMyProfileView()"><i class="fa-solid fa-user"></i> My Profile</div>
+          <div class="menu-item" onclick="invitePartner()"><i class="fa-solid fa-user-plus"></i> Invite Partner / Friend</div>
           <div class="menu-item" onclick="openSettingsModal()"><i class="fa-solid fa-gear"></i> Settings</div>
           <div class="menu-item" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
         </div>
@@ -98,7 +99,7 @@
       <div class="chat-input-area">
         <i class="fa-solid fa-face-smile attach-btn" onclick="toggleStickerPanel()"></i>
         
-        <!-- IN-APP NATIVE MEDIA PICKER (NO APP INFO PERMISSION ISSUE) -->
+        <!-- IN-APP NATIVE MEDIA PICKER -->
         <label for="img-attach" class="attach-btn" title="Send 16K Photo">
           <i class="fa-solid fa-paperclip"></i>
         </label>
@@ -170,10 +171,10 @@
         <img id="profile-modal-img" class="profile-img-hd" src="" alt="Profile Photo">
         <p id="profile-modal-email" style="color:#8696a0; font-size:13px;"></p>
         
-        <!-- NICKNAME SECTION -->
+        <!-- SHARED NICKNAME SECTION (Visible only in partner chat profile) -->
         <div id="nickname-section" style="margin-top:15px; text-align:left;">
           <label style="font-size:12px; color:#00a884; font-weight:bold;">Shared Nickname:</label>
-          <input type="text" id="nickname-field" class="nickname-input" placeholder="Set a funny nickname...">
+          <input type="text" id="nickname-field" class="nickname-input" placeholder="Set a nickname...">
           <button onclick="saveSharedNickname()" style="width:100%; background:#00a884; color:white; border:none; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">Set Nickname for Both</button>
         </div>
       </div>

@@ -13,6 +13,9 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// NETLIFY APP INSTALLATION WEBPAGE
+const MY_NETLIFY_SITE = "https://eswaran-harini.netlify.app";
+
 let currentUserEmail = "";
 let currentUserData = null;
 let currentActivePartner = "";
@@ -124,7 +127,7 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. HOME & CHATS LIST
+// 2. HOME & CHATS LIST & INVITE FEATURE
 function openHome() {
   closeAllMenus();
   showScreen('screen-home');
@@ -139,6 +142,24 @@ function closeAllMenus() {
   const cm = document.getElementById('chat-menu');
   if (hm) hm.classList.add('hidden');
   if (cm) cm.classList.add('hidden');
+}
+
+// INVITE FEATURE TO DIRECT USER TO NETLIFY SITE
+function invitePartner() {
+  closeAllMenus();
+  const inviteMsg = `Hey! Install our private chat app directly from Chrome here: ${MY_NETLIFY_SITE}`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: 'WhatsApp Private Chat',
+      text: inviteMsg,
+      url: MY_NETLIFY_SITE
+    }).catch(e => console.log(e));
+  } else {
+    navigator.clipboard.writeText(inviteMsg).then(() => {
+      alert("Invite link copied! Share this link to open in Chrome and install: " + MY_NETLIFY_SITE);
+    });
+  }
 }
 
 function searchUser() {
@@ -316,14 +337,14 @@ function openChatRoom(partner, partnerData) {
     if (doc.exists) {
       const data = doc.data();
       
-      // 1. Sync Nickname
+      // Sync Nickname
       if (data.nicknames && data.nicknames[partner]) {
         document.getElementById('chat-header-name').innerText = data.nicknames[partner];
       } else {
         document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
       }
 
-      // 2. Sync Realtime Chat Background Wallpaper
+      // Sync Realtime Chat Background Wallpaper
       const chatBox = document.getElementById('chat-box');
       if (data.sharedBg) {
         if (data.sharedBg.startsWith('data:image')) {
@@ -424,7 +445,7 @@ function sendMediaMessage(event) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const base64Data = e.target.result; // Full Crisp 16K HD Original Quality
+    const base64Data = e.target.result;
     db.collection('rooms').doc(activeRoomId).collection('messages').add({
       type: 'image',
       mediaUrl: base64Data,
@@ -518,6 +539,7 @@ function setReplyTarget(text) {
 
 function cancelReply() {
   activeReplyMsg = null;
+  document.getElementById('reply-preview-bar').classList.hidden = true;
   document.getElementById('reply-preview-bar').classList.add('hidden');
 }
 
@@ -556,7 +578,7 @@ function sendDialogue(text) {
   toggleStickerPanel();
 }
 
-// 7. SETTINGS & SHARED NICKNAMES & SHARED WALLPAPERS
+// 7. SETTINGS & PROFILE & SHARED WALLPAPERS
 function openSettingsModal() {
   closeAllMenus();
   document.getElementById('e2e-toggle').checked = isE2EEnabled;
@@ -608,17 +630,32 @@ function applySharedPhotoWallpaper(event) {
   reader.readAsDataURL(file);
 }
 
-function openActivePartnerProfile() {
+// MY PROFILE VIEW (NO NICKNAME OPTION HERE)
+function openMyProfileView() {
   closeAllMenus();
-  if (activePartnerData) openProfileView(activePartnerData);
+  if (!currentUserData) return;
+  
+  document.getElementById('profile-modal-name').innerText = currentUserData.displayName;
+  document.getElementById('profile-modal-img').src = currentUserData.photoURL;
+  document.getElementById('profile-modal-email').innerText = currentUserData.email;
+  
+  // Hide Nickname section for own profile
+  document.getElementById('nickname-section').classList.add('hidden');
+  document.getElementById('profile-modal').classList.remove('hidden');
 }
 
-function openProfileView(userData) {
-  document.getElementById('profile-modal-name').innerText = userData.displayName || userData.email.split('@')[0];
-  document.getElementById('profile-modal-img').src = userData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-  document.getElementById('profile-modal-email').innerText = userData.email;
+// PARTNER CHAT PROFILE VIEW (SHARED NICKNAME SHOWN)
+function openActivePartnerProfile() {
+  closeAllMenus();
+  if (!activePartnerData) return;
 
-  // Load existing shared nickname
+  document.getElementById('profile-modal-name').innerText = activePartnerData.displayName || activePartnerData.email.split('@')[0];
+  document.getElementById('profile-modal-img').src = activePartnerData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+  document.getElementById('profile-modal-email').innerText = activePartnerData.email;
+
+  // Show Nickname section for partner
+  document.getElementById('nickname-section').classList.remove('hidden');
+
   db.collection('chats').doc(activeRoomId).get().then(doc => {
     if (doc.exists && doc.data().nicknames) {
       document.getElementById('nickname-field').value = doc.data().nicknames[currentActivePartner] || '';
