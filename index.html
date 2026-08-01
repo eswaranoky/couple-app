@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="app-title-head">My Chat App</title>
+  <title id="app-title-head">WhatsApp Web</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#075e54">
@@ -28,8 +28,9 @@
     <!-- SCREEN 2: HOME SCREEN -->
     <div id="screen-home" class="screen">
       <div class="chat-header">
-        <h3 id="app-display-title">My Chat App</h3>
+        <h3 id="app-display-title">WhatsApp</h3>
         <div class="header-actions">
+          <button id="install-pwa-btn" class="install-btn hidden" onclick="installApp()"><i class="fa-solid fa-download"></i> Install</button>
           <i class="fa-solid fa-gear" onclick="openSettings()"></i>
           <i class="fa-solid fa-right-from-bracket" onclick="logout()"></i>
         </div>
@@ -78,27 +79,22 @@
 
       <!-- INPUT AREA WITH MEDIA, VOICE, VIEW ONCE & TEXT -->
       <div class="chat-input-area">
-        <!-- Normal Photo Attach -->
         <label for="img-attach" class="attach-btn" title="Send Image">
           <i class="fa-solid fa-paperclip"></i>
         </label>
         <input type="file" id="img-attach" accept="image/*" style="display:none;" onchange="sendMediaMessage(event)">
 
-        <!-- View Once Photo Attach -->
         <label for="viewonce-attach" class="attach-btn viewonce-btn" title="Send View Once Photo">
           <i class="fa-solid fa-1"></i>
         </label>
         <input type="file" id="viewonce-attach" accept="image/*" style="display:none;" onchange="sendViewOnceMessage(event)">
 
-        <!-- Text Input -->
         <input type="text" id="msg-input" placeholder="Type an encrypted message...">
 
-        <!-- Voice Note Record Button -->
         <button id="voice-btn" onmousedown="startRecording()" onmouseup="stopRecording()" class="mic-btn" title="Hold to record audio">
           <i class="fa-solid fa-microphone"></i>
         </button>
 
-        <!-- Send Button -->
         <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
     </div>
@@ -110,11 +106,61 @@
         <h3>Settings</h3>
       </div>
       <div class="settings-body">
-        <div class="input-group">
-          <label>Custom App Name:</label>
-          <input type="text" id="edit-app-name" placeholder="e.g. My Private Space">
+        <div class="profile-preview-box">
+          <img id="settings-avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
+          <label for="profile-pic-file" class="change-photo-btn"><i class="fa-solid fa-camera"></i> Change Photo</label>
+          <input type="file" id="profile-pic-file" accept="image/*" style="display:none;" onchange="handleProfilePhoto(event)">
         </div>
-        <button id="save-settings-btn" onclick="saveSettings()">Save Changes 🔒</button>
+
+        <div class="input-group">
+          <label><i class="fa-solid fa-user"></i> Display Name</label>
+          <input type="text" id="edit-display-name" placeholder="Your Name">
+        </div>
+
+        <div class="input-group">
+          <label><i class="fa-solid fa-circle-info"></i> About / Bio</label>
+          <input type="text" id="edit-user-bio" placeholder="Hey there! I am using WhatsApp.">
+        </div>
+
+        <div class="settings-option-item">
+          <span><i class="fa-solid fa-bell"></i> Chat Notifications</span>
+          <input type="checkbox" checked>
+        </div>
+
+        <div class="settings-option-item">
+          <span><i class="fa-solid fa-shield-halved"></i> Privacy & E2E Encryption</span>
+          <span class="badge">Active</span>
+        </div>
+
+        <button id="save-settings-btn" onclick="saveSettings()">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- PHOTO VIEWER MODAL WITH 3-DOT MENU -->
+    <div id="photo-viewer-modal" class="modal hidden">
+      <div class="modal-header">
+        <span class="close-modal" onclick="closePhotoViewer()">&times;</span>
+        <div class="dropdown">
+          <i class="fa-solid fa-ellipsis-vertical dropbtn" onclick="togglePhotoMenu()"></i>
+          <div id="photo-menu" class="dropdown-content hidden">
+            <a id="hd-download-link" download="photo_hd.jpg" target="_blank"><i class="fa-solid fa-download"></i> Download HD Image</a>
+            <a onclick="openFullImageWindow()"><i class="fa-solid fa-up-right-and-pointer"></i> Open in New Tab</a>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <img id="modal-viewer-img" src="" alt="View Photo">
+      </div>
+    </div>
+
+    <!-- VIDEO/VOICE CALL MODAL -->
+    <div id="call-modal" class="modal hidden">
+      <div class="modal-header">
+        <span id="call-type-title">Call Status</span>
+        <span class="close-modal" onclick="endCall()">&times;</span>
+      </div>
+      <div class="modal-body call-container">
+        <iframe id="jitsi-iframe" allow="camera; microphone; display-capture"></iframe>
       </div>
     </div>
 
