@@ -13,9 +13,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// NETLIFY & DIRECT APK DOWNLOAD URLS
+// NETLIFY APP INSTALLATION WEBPAGE
 const MY_NETLIFY_SITE = "https://eswaran-harini.netlify.app";
-const DIRECT_APK_URL = "https://eswaran-harini.netlify.app/app.apk"; // Direct Media/APK File Link
 
 let currentUserEmail = "";
 let currentUserData = null;
@@ -128,7 +127,7 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. HOME & CHATS LIST & INVITE SYSTEM
+// 2. HOME & CHATS LIST & INVITE FEATURE
 function openHome() {
   closeAllMenus();
   showScreen('screen-home');
@@ -145,49 +144,21 @@ function closeAllMenus() {
   if (cm) cm.classList.add('hidden');
 }
 
-// INVITE MODAL FUNCTIONS (2 OPTIONS)
-function openInviteModal() {
+// INVITE FEATURE TO DIRECT USER TO NETLIFY SITE
+function invitePartner() {
   closeAllMenus();
-  document.getElementById('invite-modal').classList.remove('hidden');
-}
-
-// OPTION 1: OPEN WEBSITE IN CHROME
-function openWebsiteLink() {
-  closeModal('invite-modal');
-  const inviteMsg = `Hey! Open this link in Chrome to access our private app: ${MY_NETLIFY_SITE}`;
+  const inviteMsg = `Hey! Install our private chat app directly from Chrome here: ${MY_NETLIFY_SITE}`;
   
   if (navigator.share) {
     navigator.share({
-      title: 'WhatsApp Private App',
+      title: 'WhatsApp Private Chat',
       text: inviteMsg,
       url: MY_NETLIFY_SITE
     }).catch(e => console.log(e));
   } else {
     navigator.clipboard.writeText(inviteMsg).then(() => {
-      alert("Website Link Copied! Opening Chrome...");
-      window.open(MY_NETLIFY_SITE, '_blank');
+      alert("Invite link copied! Share this link to open in Chrome and install: " + MY_NETLIFY_SITE);
     });
-  }
-}
-
-// OPTION 2: DIRECT MEDIA / APK FILE DOWNLOAD
-function downloadDirectApk() {
-  closeModal('invite-modal');
-  const apkShareMsg = `Download & Install our App File directly from this link: ${DIRECT_APK_URL}`;
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(DIRECT_APK_URL);
-  }
-
-  if (navigator.share) {
-    navigator.share({
-      title: 'Download App File',
-      text: apkShareMsg,
-      url: DIRECT_APK_URL
-    }).catch(e => console.log(e));
-  } else {
-    alert("Direct Download Link Copied! Downloading File...");
-    window.location.href = DIRECT_APK_URL;
   }
 }
 
@@ -351,7 +322,7 @@ function deleteChatRoom() {
   }
 }
 
-// 4. CHAT ROOM & SHARED WALLPAPER & NICKNAMES SYNC
+// 4. CHAT ROOM & SHARED WALLPAPER & NICKNAMES REALTIME SYNC
 function openChatRoom(partner, partnerData) {
   closeAllMenus();
   currentActivePartner = partner;
@@ -361,17 +332,19 @@ function openChatRoom(partner, partnerData) {
 
   showScreen('screen-chat');
 
-  // LISTEN FOR SHARED WALLPAPER & NICKNAMES
+  // LISTEN FOR SHARED WALLPAPER & SHARED NICKNAMES
   db.collection('chats').doc(activeRoomId).onSnapshot(doc => {
     if (doc.exists) {
       const data = doc.data();
       
+      // Sync Nickname
       if (data.nicknames && data.nicknames[partner]) {
         document.getElementById('chat-header-name').innerText = data.nicknames[partner];
       } else {
         document.getElementById('chat-header-name').innerText = partnerData.displayName || partner.split('@')[0];
       }
 
+      // Sync Realtime Chat Background Wallpaper
       const chatBox = document.getElementById('chat-box');
       if (data.sharedBg) {
         if (data.sharedBg.startsWith('data:image')) {
@@ -406,7 +379,7 @@ function openChatRoom(partner, partnerData) {
     }
   });
 
-  // REALTIME MESSAGES
+  // REALTIME MESSAGES SNAPSHOT
   db.collection('rooms').doc(activeRoomId).collection('messages')
     .orderBy('timestamp', 'asc')
     .onSnapshot((snapshot) => {
@@ -465,7 +438,7 @@ function toggleViewOnceMode() {
   document.getElementById('view-once-btn').classList.toggle('active', isViewOnceMode);
 }
 
-// 5. IMAGE UPLOAD
+// 5. 16K UNCOMPRESSED ULTRA-HD IMAGE UPLOAD & IN-APP PERMISSION
 function sendMediaMessage(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -510,7 +483,7 @@ function renderMessage(msg, msgId) {
   };
   div.ontouchend = (e) => {
     div.style.transform = 'translateX(0px)';
-    setReplyTarget(msg.type === 'text' ? decryptText(msg.text) : 'Photo');
+    setReplyTarget(msg.type === 'text' ? decryptText(msg.text) : '16K Photo');
   };
 
   let replyHtml = msg.replyTo ? `<div class="reply-preview-box">↩️ ${msg.replyTo}</div>` : '';
@@ -566,6 +539,7 @@ function setReplyTarget(text) {
 
 function cancelReply() {
   activeReplyMsg = null;
+  document.getElementById('reply-preview-bar').classList.hidden = true;
   document.getElementById('reply-preview-bar').classList.add('hidden');
 }
 
@@ -656,6 +630,7 @@ function applySharedPhotoWallpaper(event) {
   reader.readAsDataURL(file);
 }
 
+// MY PROFILE VIEW (NO NICKNAME OPTION HERE)
 function openMyProfileView() {
   closeAllMenus();
   if (!currentUserData) return;
@@ -664,10 +639,12 @@ function openMyProfileView() {
   document.getElementById('profile-modal-img').src = currentUserData.photoURL;
   document.getElementById('profile-modal-email').innerText = currentUserData.email;
   
+  // Hide Nickname section for own profile
   document.getElementById('nickname-section').classList.add('hidden');
   document.getElementById('profile-modal').classList.remove('hidden');
 }
 
+// PARTNER CHAT PROFILE VIEW (SHARED NICKNAME SHOWN)
 function openActivePartnerProfile() {
   closeAllMenus();
   if (!activePartnerData) return;
@@ -676,6 +653,7 @@ function openActivePartnerProfile() {
   document.getElementById('profile-modal-img').src = activePartnerData.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
   document.getElementById('profile-modal-email').innerText = activePartnerData.email;
 
+  // Show Nickname section for partner
   document.getElementById('nickname-section').classList.remove('hidden');
 
   db.collection('chats').doc(activeRoomId).get().then(doc => {
@@ -705,7 +683,7 @@ function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-// 8. PEERJS CALLS
+// 8. PEERJS CALLS & LOGS
 function initPeerJS() {
   const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   peer = new Peer(myPeerId);
