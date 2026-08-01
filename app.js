@@ -18,25 +18,38 @@ let currentActivePartner = "";
 let activeRoomId = "";
 let currentViewImgUrl = "";
 let deferredPrompt;
+let currentMyStatusDocId = null;
 
-// PWA INSTALL LOGIC
+// HARDWARE BACK BUTTON HANDLER TO PREVENT EXITING APP ON BACK TAP
+window.onpopstate = function(event) {
+  const currentScreen = document.querySelector('.screen.active');
+  if (currentScreen && currentScreen.id !== 'screen-home' && currentScreen.id !== 'screen-login') {
+    openHome();
+  }
+};
+
+// PWA INSTALL EVENT LISTENER
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  document.getElementById('install-pwa-btn').classList.remove('hidden');
 });
 
-function installApp() {
+function installAppDirect() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(() => {
       deferredPrompt = null;
-      document.getElementById('install-pwa-btn').classList.add('hidden');
+      openHome();
     });
+  } else {
+    alert("To install, tap browser menu (3 dots) and select 'Add to Home screen'.");
+    openHome();
   }
 }
 
-// 1. AUTO LOGIN & AUTH CHECK
+function skipInstallAndGoHome() { openHome(); }
+
+// 1. AUTO LOGIN & PWA CHECK
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUserEmail = user.email.toLowerCase();
@@ -50,7 +63,10 @@ auth.onAuthStateChanged((user) => {
         });
       }
     });
-    openHome();
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) { openHome(); } else { showScreen('screen-install'); }
+
   } else {
     showScreen('screen-login');
   }
@@ -68,11 +84,28 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. HOME SCREEN & LISTS
+// 2. HOME SCREEN & TAB SWITCHING
 function openHome() {
   showScreen('screen-home');
   listenFriendRequests();
   listenAcceptedChats();
+  listenStatuses();
+  
+  // Push state to prevent back button from exiting app
+  history.pushState({ page: 'home' }, "Home", "#home");
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+  if (tabName === 'chats') {
+    document.getElementById('tab-chats-btn').classList.add('active');
+    document.getElementById('tab-chats-content').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-status-btn').classList.add('active');
+    document.getElementById('tab-status-content').classList.remove('hidden');
+  }
 }
 
 function searchUser() {
@@ -156,41 +189,46 @@ function listenAcceptedChats() {
   db.collection('chats').where('users', 'array-contains', currentUserEmail)
     .onSnapshot((snapshot) => {
       const chatList = document.getElementById('recent-chats-list');
+      if (!chatList) return;
       chatList.innerHTML = '';
 
       snapshot.forEach((doc) => {
         const users = doc.data().users;
         const partner = users.find(u => u !== currentUserEmail);
 
-        db.collection('users').doc(partner).get().then(pDoc => {
-          const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
-          
-          const savedNickname = localStorage.getItem(`nickname_${currentUserEmail}_${partner}`);
-          const nameToShow = savedNickname || pData.displayName || partner.split('@')[0];
+        if (partner) {
+          db.collection('users').doc(partner).get().then(pDoc => {
+            const pData = pDoc.exists ? pDoc.data() : { displayName: partner.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
+            
+            const savedNickname = localStorage.getItem(`nickname_${currentUserEmail}_${partner}`);
+            const nameToShow = savedNickname || pData.displayName || partner.split('@')[0];
+            const avatarUrl = pData.photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-          const card = document.createElement('div');
-          card.className = 'chat-card';
-          card.onclick = () => openChatRoom(partner, pData);
-          card.innerHTML = `
-            <img src="${pData.photoURL}">
-            <div>
-              <b>${nameToShow}</b>
-              <p style="font-size:12px; color:#666;">Tap to chat</p>
-            </div>
-          `;
-          chatList.appendChild(card);
-        });
+            const card = document.createElement('div');
+            card.className = 'chat-card';
+            card.onclick = () => openChatRoom(partner, pData);
+            card.innerHTML = `
+              <img src="${avatarUrl}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
+              <div>
+                <b>${nameToShow}</b>
+                <p style="font-size:12px; color:#666;">Tap to chat</p>
+              </div>
+            `;
+            chatList.appendChild(card);
+          });
+        }
       });
     });
 }
 
-// 3. CHAT ROOM & NAME MANAGEMENT
+// 3. CHAT ROOM WITH BACK-BUTTON HISTORY PUSH
 function openChatRoom(partner, partnerData) {
   currentActivePartner = partner;
   const ids = [currentUserEmail, partner].sort();
   activeRoomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
 
   showScreen('screen-chat');
+  history.pushState({ page: 'chat' }, "Chat", "#chat");
 
   const savedNickname = localStorage.getItem(`nickname_${currentUserEmail}_${partner}`);
   const displayNameToShow = savedNickname || partnerData.displayName || partner.split('@')[0];
@@ -215,9 +253,7 @@ function openChatRoom(partner, partnerData) {
     });
 }
 
-function toggleChatHeaderMenu() {
-  document.getElementById('chat-header-menu').classList.toggle('hidden');
-}
+function toggleChatHeaderMenu() { document.getElementById('chat-header-menu').classList.toggle('hidden'); }
 
 function editPartnerNickname() {
   document.getElementById('chat-header-menu').classList.add('hidden');
@@ -250,50 +286,168 @@ function sendMediaMessage(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = function(evt) {
+  compressImage(file, 600, 0.7, (compressedDataUrl) => {
     db.collection('rooms').doc(activeRoomId).collection('messages').add({
       type: 'image',
-      mediaData: evt.target.result,
+      mediaData: compressedDataUrl,
       sender: currentUserEmail,
       status: 'sent',
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function sendViewOnceMessage(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = function(evt) {
+  compressImage(file, 600, 0.7, (compressedDataUrl) => {
     db.collection('rooms').doc(activeRoomId).collection('messages').add({
       type: 'view_once',
-      mediaData: evt.target.result,
+      mediaData: compressedDataUrl,
       isOpened: false,
       sender: currentUserEmail,
       status: 'sent',
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
-// 5. VIEW ONCE & HD PHOTO VIEWER
+// 5. STATUS LOGIC (UPLOAD, VIEW, DELETE)
+function uploadStatusPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  compressImage(file, 600, 0.7, (compressedUrl) => {
+    db.collection('statuses').doc(currentUserEmail).set({
+      userEmail: currentUserEmail,
+      type: 'image',
+      content: compressedUrl,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      alert("Status uploaded!");
+    });
+  });
+}
+
+function promptTextStatus() {
+  const text = prompt("Write status update:");
+  if (text && text.trim() !== "") {
+    db.collection('statuses').doc(currentUserEmail).set({
+      userEmail: currentUserEmail,
+      type: 'text',
+      content: text.trim(),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      alert("Status updated!");
+    });
+  }
+}
+
+function listenStatuses() {
+  db.collection('users').doc(currentUserEmail).get().then(uDoc => {
+    if (uDoc.exists) {
+      document.getElementById('my-status-avatar').src = uDoc.data().photoURL || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    }
+  });
+
+  db.collection('statuses').doc(currentUserEmail).onSnapshot(doc => {
+    if (doc.exists) {
+      currentMyStatusDocId = doc.id;
+      document.getElementById('my-status-subtext').innerText = "Tap to view or delete status";
+    } else {
+      currentMyStatusDocId = null;
+      document.getElementById('my-status-subtext').innerText = "Tap to add status update";
+    }
+  });
+
+  db.collection('statuses').onSnapshot(snapshot => {
+    const list = document.getElementById('recent-statuses-list');
+    list.innerHTML = '';
+
+    snapshot.forEach(doc => {
+      const s = doc.data();
+      if (s.userEmail !== currentUserEmail) {
+        db.collection('users').doc(s.userEmail).get().then(uDoc => {
+          const u = uDoc.exists ? uDoc.data() : { displayName: s.userEmail.split('@')[0], photoURL: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
+          const card = document.createElement('div');
+          card.className = 'status-item-card';
+          card.onclick = () => viewStatusModal(u.displayName, u.photoURL, s.type, s.content, false);
+          card.innerHTML = `
+            <img src="${u.photoURL}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
+            <div>
+              <b>${u.displayName || s.userEmail.split('@')[0]}</b>
+              <p style="font-size:12px; color:#666;">Tap to view status</p>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+      }
+    });
+  });
+}
+
+function triggerMyStatusAction() {
+  if (currentMyStatusDocId) {
+    db.collection('statuses').doc(currentUserEmail).get().then(doc => {
+      if (doc.exists) {
+        const s = doc.data();
+        db.collection('users').doc(currentUserEmail).get().then(uDoc => {
+          const u = uDoc.data();
+          viewStatusModal("My Status", u.photoURL, s.type, s.content, true);
+        });
+      }
+    });
+  } else {
+    document.getElementById('status-file-input').click();
+  }
+}
+
+function viewStatusModal(name, avatar, type, content, isOwner) {
+  document.getElementById('status-user-name').innerText = name;
+  document.getElementById('status-user-avatar').src = avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+  const imgElem = document.getElementById('status-img-display');
+  const txtElem = document.getElementById('status-text-display');
+
+  if (type === 'image') {
+    imgElem.src = content;
+    imgElem.classList.remove('hidden');
+    txtElem.classList.add('hidden');
+  } else {
+    txtElem.innerText = content;
+    txtElem.classList.remove('hidden');
+    imgElem.classList.add('hidden');
+  }
+
+  if (isOwner) {
+    document.getElementById('my-status-owner-actions').classList.remove('hidden');
+  } else {
+    document.getElementById('my-status-owner-actions').classList.add('hidden');
+  }
+
+  document.getElementById('status-viewer-modal').classList.remove('hidden');
+}
+
+function closeStatusViewer() { document.getElementById('status-viewer-modal').classList.add('hidden'); }
+
+function deleteMyStatus() {
+  if (confirm("Do you want to delete your status?")) {
+    db.collection('statuses').doc(currentUserEmail).delete().then(() => {
+      closeStatusViewer();
+      alert("Status deleted!");
+    });
+  }
+}
+
+// 6. VIEW ONCE & HD PHOTO VIEWER
 function handleViewOnceClick(msgId, mediaData, isOpened, sender) {
   if (sender === currentUserEmail) return;
-
-  if (isOpened) {
-    alert("Photo is already expired!");
-    return;
-  }
+  if (isOpened) { alert("Photo is already expired!"); return; }
 
   openPhotoViewer(mediaData);
   db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).update({
-    isOpened: true,
-    mediaData: ""
+    isOpened: true, mediaData: ""
   });
 }
 
@@ -309,16 +463,14 @@ function closePhotoViewer() {
   document.getElementById('photo-menu').classList.add('hidden');
 }
 
-function togglePhotoMenu() {
-  document.getElementById('photo-menu').classList.toggle('hidden');
-}
+function togglePhotoMenu() { document.getElementById('photo-menu').classList.toggle('hidden'); }
 
 function openFullImageWindow() {
   const win = window.open("");
   win.document.write(`<img src="${currentViewImgUrl}" style="max-width:100%;" />`);
 }
 
-// 6. VOICE RECORDING
+// 7. VOICE RECORDING
 let mediaRecorder, audioChunks = [];
 function startRecording() {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -350,7 +502,7 @@ function stopRecording() {
   });
 }
 
-// 7. REALTIME CALLING (JITSI INTEGRATION)
+// 8. REALTIME CALLING (JITSI INTEGRATION)
 function startCall(type) {
   const roomName = `Calling_${activeRoomId}`;
   const domain = "meet.jit.si";
@@ -366,7 +518,7 @@ function endCall() {
   document.getElementById('call-modal').classList.add('hidden');
 }
 
-// 8. RENDER MESSAGES WITH ORANGE TICK
+// 9. RENDER MESSAGES WITH ORANGE TICK
 function renderMessage(msg, msgId) {
   const chatBox = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -402,9 +554,10 @@ function renderMessage(msg, msgId) {
   chatBox.appendChild(div);
 }
 
-// 9. SETTINGS MANAGEMENT
+// 10. PROFILE SETTINGS UPDATE
 function openSettings() {
   showScreen('screen-settings');
+  history.pushState({ page: 'settings' }, "Settings", "#settings");
   db.collection('users').doc(currentUserEmail).get().then(doc => {
     if (doc.exists) {
       const u = doc.data();
@@ -419,14 +572,16 @@ function handleProfilePhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    document.getElementById('settings-avatar-preview').src = evt.target.result;
-  };
-  reader.readAsDataURL(file);
+  compressImage(file, 200, 0.6, (compressedDataUrl) => {
+    document.getElementById('settings-avatar-preview').src = compressedDataUrl;
+  });
 }
 
 function saveSettings() {
+  const saveBtn = document.getElementById('save-settings-btn');
+  saveBtn.innerText = "Saving...";
+  saveBtn.disabled = true;
+
   const newName = document.getElementById('edit-display-name').value.trim();
   const newBio = document.getElementById('edit-user-bio').value.trim();
   const avatarSrc = document.getElementById('settings-avatar-preview').src;
@@ -436,9 +591,41 @@ function saveSettings() {
     bio: newBio,
     photoURL: avatarSrc
   }).then(() => {
-    alert("Profile Saved!");
+    saveBtn.innerText = "Save Changes";
+    saveBtn.disabled = false;
+    alert("Profile Updated Successfully!");
     openHome();
+  }).catch(err => {
+    saveBtn.innerText = "Save Changes";
+    saveBtn.disabled = false;
+    alert("Error updating profile. Please try again.");
   });
+}
+
+// IMAGE COMPRESSION HELPER
+function compressImage(file, maxWidth, quality, callback) {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = function(event) {
+    const img = new Image();
+    img.src = event.target.result;
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', quality));
+    };
+  };
 }
 
 function showScreen(id) {

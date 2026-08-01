@@ -2,7 +2,7 @@
 <html lang="ta">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title id="app-title-head">WhatsApp Web</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
@@ -25,37 +25,88 @@
       </div>
     </div>
 
-    <!-- SCREEN 2: HOME SCREEN -->
+    <!-- SCREEN 1.5: PWA INSTALL SCREEN -->
+    <div id="screen-install" class="screen">
+      <div class="auth-box">
+        <i class="fa-solid fa-mobile-screen-button main-icon" style="color:#25d366;"></i>
+        <h2>Install Application</h2>
+        <p class="subtitle">Get the full native app experience on your phone!</p>
+        <button id="install-screen-btn" class="google-btn" style="background:#25d366;" onclick="installAppDirect()">
+          <i class="fa-solid fa-download"></i> Install App Now
+        </button>
+        <button onclick="skipInstallAndGoHome()" style="margin-top:15px; background:transparent; border:none; color:#666; cursor:pointer; font-weight:bold;">
+          Continue in Web Browser
+        </button>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: HOME SCREEN WITH TABS (CHATS / STATUS) -->
     <div id="screen-home" class="screen">
       <div class="chat-header">
         <h3 id="app-display-title">WhatsApp</h3>
         <div class="header-actions">
-          <button id="install-pwa-btn" class="install-btn hidden" onclick="installApp()"><i class="fa-solid fa-download"></i> Install</button>
           <i class="fa-solid fa-gear" onclick="openSettings()"></i>
           <i class="fa-solid fa-right-from-bracket" onclick="logout()"></i>
         </div>
       </div>
 
-      <!-- SEARCH BAR -->
-      <div class="search-section">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="email" id="search-email-input" placeholder="Search user by Email..." onkeyup="searchUser()">
+      <!-- TABS HEADER -->
+      <div class="tab-header">
+        <div id="tab-chats-btn" class="tab-btn active" onclick="switchTab('chats')">CHATS</div>
+        <div id="tab-status-btn" class="tab-btn" onclick="switchTab('status')">STATUS</div>
+      </div>
+
+      <!-- TAB 1: CHATS VIEW -->
+      <div id="tab-chats-content" class="tab-content active">
+        <!-- SEARCH BAR -->
+        <div class="search-section">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="email" id="search-email-input" placeholder="Search user by Email..." onkeyup="searchUser()">
+          </div>
+          <div id="search-results" class="search-results-list hidden"></div>
         </div>
-        <div id="search-results" class="search-results-list hidden"></div>
+
+        <!-- PENDING REQUESTS -->
+        <div id="requests-section" class="requests-section hidden">
+          <h4>Friend Requests</h4>
+          <div id="requests-list"></div>
+        </div>
+
+        <!-- RECENT CHATS LIST -->
+        <div class="chat-list-section">
+          <h4>Chats</h4>
+          <div id="recent-chats-list"></div>
+        </div>
       </div>
 
-      <!-- PENDING REQUESTS -->
-      <div id="requests-section" class="requests-section hidden">
-        <h4>Friend Requests</h4>
-        <div id="requests-list"></div>
+      <!-- TAB 2: STATUS VIEW -->
+      <div id="tab-status-content" class="tab-content hidden">
+        <div class="status-section">
+          <!-- MY STATUS BAR -->
+          <div class="my-status-card">
+            <div class="status-avatar-wrapper" onclick="triggerMyStatusAction()">
+              <img id="my-status-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="My Status">
+              <span class="add-status-plus">+</span>
+            </div>
+            <div class="status-info" onclick="triggerMyStatusAction()">
+              <b>My Status</b>
+              <p id="my-status-subtext">Tap to add status update</p>
+            </div>
+            <div class="status-actions-btns">
+              <label for="status-file-input" class="status-icon-btn" title="Add Photo Status">
+                <i class="fa-solid fa-camera"></i>
+              </label>
+              <input type="file" id="status-file-input" accept="image/*" style="display:none;" onchange="uploadStatusPhoto(event)">
+              <i class="fa-solid fa-pen status-icon-btn" onclick="promptTextStatus()" title="Add Text Status"></i>
+            </div>
+          </div>
+
+          <h4 style="margin: 15px 0 10px 0; color: #666; font-size: 13px;">RECENT UPDATES</h4>
+          <div id="recent-statuses-list"></div>
+        </div>
       </div>
 
-      <!-- RECENT CHATS LIST -->
-      <div class="chat-list-section">
-        <h4>Chats</h4>
-        <div id="recent-chats-list"></div>
-      </div>
     </div>
 
     <!-- SCREEN 3: INDIVIDUAL CHAT ROOM -->
@@ -65,13 +116,19 @@
           <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()"></i>
           <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
           <div>
-            <h4 id="chat-header-name">User</h4>
+            <h4 id="chat-header-name">Name</h4>
             <span class="status">Online</span>
           </div>
         </div>
         <div class="header-actions">
           <i class="fa-solid fa-video call-btn" onclick="startCall('video')"></i>
           <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
+          <div class="dropdown">
+            <i class="fa-solid fa-ellipsis-vertical dropbtn" onclick="toggleChatHeaderMenu()"></i>
+            <div id="chat-header-menu" class="dropdown-content hidden">
+              <a onclick="editPartnerNickname()"><i class="fa-solid fa-pen"></i> Edit Name</a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -122,21 +179,32 @@
           <input type="text" id="edit-user-bio" placeholder="Hey there! I am using WhatsApp.">
         </div>
 
-        <div class="settings-option-item">
-          <span><i class="fa-solid fa-bell"></i> Chat Notifications</span>
-          <input type="checkbox" checked>
-        </div>
-
-        <div class="settings-option-item">
-          <span><i class="fa-solid fa-shield-halved"></i> Privacy & E2E Encryption</span>
-          <span class="badge">Active</span>
-        </div>
-
         <button id="save-settings-btn" onclick="saveSettings()">Save Changes</button>
       </div>
     </div>
 
-    <!-- PHOTO VIEWER MODAL WITH 3-DOT MENU -->
+    <!-- STATUS VIEWER FULLSCREEN MODAL -->
+    <div id="status-viewer-modal" class="modal hidden">
+      <div class="modal-header">
+        <div class="user-info">
+          <span class="close-modal" onclick="closeStatusViewer()">&times;</span>
+          <img id="status-user-avatar" src="" alt="Avatar" style="width:30px; height:30px; border-radius:50%;">
+          <div>
+            <h5 id="status-user-name" style="color:white; font-size:14px;">User</h5>
+            <span id="status-time" style="color:#ccc; font-size:10px;">Just now</span>
+          </div>
+        </div>
+        <div id="my-status-owner-actions" class="hidden">
+          <i class="fa-solid fa-trash" style="color:#e74c3c; font-size:18px; cursor:pointer;" onclick="deleteMyStatus()" title="Delete Status"></i>
+        </div>
+      </div>
+      <div class="modal-body" style="background:#111;">
+        <div id="status-text-display" class="hidden" style="color:white; font-size:22px; text-align:center; padding:20px; font-weight:bold;"></div>
+        <img id="status-img-display" class="hidden" src="" alt="Status Image">
+      </div>
+    </div>
+
+    <!-- PHOTO VIEWER MODAL -->
     <div id="photo-viewer-modal" class="modal hidden">
       <div class="modal-header">
         <span class="close-modal" onclick="closePhotoViewer()">&times;</span>
@@ -153,7 +221,7 @@
       </div>
     </div>
 
-    <!-- VIDEO/VOICE CALL MODAL -->
+    <!-- CALL MODAL -->
     <div id="call-modal" class="modal hidden">
       <div class="modal-header">
         <span id="call-type-title">Call Status</span>
@@ -166,7 +234,6 @@
 
   </div>
 
-  <!-- FIREBASE SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>

@@ -5,9 +5,14 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #075e54;
+}
+
 body {
-  background: #d1d8e0;
-  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,32 +20,40 @@ body {
 
 .app-container {
   width: 100%;
-  max-width: 400px;
-  height: 650px;
+  max-width: 480px;
+  height: 100vh;
+  height: 100dvh;
   background: #efeae2;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  overflow: hidden;
   position: relative;
-}
-
-.screen { display: none; flex-direction: column; height: 100%; }
-.screen.active { display: flex; }
-
-.auth-box {
-  padding: 40px 25px;
-  text-align: center;
-  background: white;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
-.main-icon { font-size: 50px; color: #075e54; margin-bottom: 15px; }
-.subtitle { color: #666; font-size: 13px; margin-bottom: 25px; }
+
+@media (min-width: 481px) {
+  .app-container {
+    height: 90vh;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+}
+
+.screen { display: none; flex-direction: column; height: 100%; width: 100%; }
+.screen.active { display: flex; }
+
+/* TAB HEADER */
+.tab-header { display: flex; background: #075e54; border-top: 1px solid rgba(255,255,255,0.1); }
+.tab-btn { flex: 1; text-align: center; color: rgba(255,255,255,0.7); padding: 10px 0; font-size: 13px; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; }
+.tab-btn.active { color: white; border-bottom: 3px solid #25d366; }
+
+.tab-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+.auth-box {
+  padding: 40px 25px; text-align: center; background: white; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+.main-icon { font-size: 60px; color: #075e54; margin-bottom: 20px; }
+.subtitle { color: #666; font-size: 14px; margin-bottom: 25px; }
 .google-btn {
-  background: #4285f4; color: white; padding: 14px; border: none; border-radius: 8px;
-  font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #4285f4; color: white; padding: 14px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 280px;
 }
 
 .chat-header {
@@ -49,11 +62,7 @@ body {
 .user-info { display: flex; align-items: center; gap: 12px; }
 .back-btn { font-size: 18px; cursor: pointer; margin-right: 5px; }
 .user-info img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
-.header-actions { display: flex; align-items: center; gap: 15px; font-size: 18px; cursor: pointer; }
-
-.install-btn {
-  background: #25d366; color: white; border: none; padding: 5px 10px; border-radius: 12px; font-weight: bold; font-size: 11px; cursor: pointer;
-}
+.header-actions { display: flex; align-items: center; gap: 18px; font-size: 18px; cursor: pointer; }
 
 .search-section { padding: 10px; background: #f0f2f5; position: relative; }
 .search-box { display: flex; align-items: center; background: white; padding: 8px 12px; border-radius: 20px; gap: 10px; }
@@ -64,7 +73,7 @@ body {
 .user-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; }
 .user-item button { background: #25d366; border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
 
-.requests-section, .chat-list-section { padding: 10px; }
+.requests-section, .chat-list-section { padding: 10px; flex: 1; overflow-y: auto; }
 .requests-section h4, .chat-list-section h4 { font-size: 12px; color: #666; margin-bottom: 8px; text-transform: uppercase; }
 .req-card { background: white; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .req-btns { display: flex; gap: 5px; }
@@ -73,6 +82,20 @@ body {
 
 .chat-card { background: white; padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; cursor: pointer; }
 .chat-card img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
+
+/* STATUS DESIGN */
+.status-section { padding: 12px; }
+.my-status-card { background: white; padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; }
+.status-avatar-wrapper { position: relative; width: 48px; height: 48px; cursor: pointer; }
+.status-avatar-wrapper img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #25d366; }
+.add-status-plus { position: absolute; bottom: 0; right: 0; background: #25d366; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid white; }
+.status-info { flex: 1; margin-left: 12px; cursor: pointer; }
+.status-info p { font-size: 12px; color: #777; }
+.status-actions-btns { display: flex; gap: 15px; font-size: 18px; color: #075e54; }
+.status-icon-btn { cursor: pointer; }
+
+.status-item-card { background: white; padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; cursor: pointer; }
+.status-item-card img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #25d366; }
 
 .chat-messages {
   flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
@@ -106,23 +129,18 @@ body {
 }
 .view-once-bubble.opened { color: #888; text-decoration: line-through; cursor: not-allowed; }
 
-/* SETTINGS SCREEN UI */
 .settings-header { background: #075e54; color: white; padding: 15px; display: flex; align-items: center; gap: 15px; }
 .settings-body { padding: 20px; background: white; height: 100%; overflow-y: auto; }
 .profile-preview-box { text-align: center; margin-bottom: 20px; }
-.profile-preview-box img { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 2px solid #075e54; }
-.change-photo-btn { display: inline-block; background: #efeae2; color: #075e54; padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; cursor: pointer; }
+.profile-preview-box img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 3px solid #075e54; }
+.change-photo-btn { display: inline-block; background: #efeae2; color: #075e54; padding: 8px 14px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; }
 
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; margin-bottom: 5px; font-size: 13px; color: #555; }
 .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
 
-.settings-option-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
-.badge { background: #25d366; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+#save-settings-btn { background: #075e54; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; font-size: 15px; }
 
-#save-settings-btn { background: #075e54; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; }
-
-/* MODAL & PHOTO VIEWER */
 .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; flex-direction: column; }
 .modal-header { padding: 15px; color: white; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); }
 .close-modal { font-size: 24px; cursor: pointer; }
