@@ -199,7 +199,6 @@ function openChatRoom(partner) {
       snapshot.forEach((doc) => {
         const msg = doc.data();
 
-        // Opposite person mesage-a open panna "read" (Orange Tick)-a update pannum
         if (msg.sender !== currentUserEmail && msg.status !== 'read') {
           db.collection('rooms').doc(activeRoomId).collection('messages').doc(doc.id).update({
             status: 'read'
@@ -326,7 +325,6 @@ function renderMessage(msg, msgId) {
 
   const timeStr = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
 
-  // Orange Tick Generator
   let tickHtml = '';
   if (isMe) {
     if (msg.status === 'read') {
@@ -336,7 +334,6 @@ function renderMessage(msg, msgId) {
     }
   }
 
-  // Body content render by type
   let contentHtml = '';
   if (msg.type === 'image') {
     contentHtml = `<img src="${msg.mediaData}" class="chat-img" />`;
