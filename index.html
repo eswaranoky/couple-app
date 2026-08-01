@@ -5,47 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Couple App</title>
 
-  <!-- Dynamic PWA Manifest Integration -->
-  <script>
-    const manifestData = {
-      "name": "Couple App",
-      "short_name": "CoupleApp",
-      "start_url": "/",
-      "display": "standalone",
-      "background_color": "#111111",
-      "theme_color": "#ff4b2b",
-      "icons": [
-        {
-          "src": "https://cdn-icons-png.flaticon.com/512/1077/1077035.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        },
-        {
-          "src": "https://cdn-icons-png.flaticon.com/512/1077/1077035.png",
-          "sizes": "512x512",
-          "type": "image/png"
-        }
-      ]
-    };
-    const stringManifest = JSON.stringify(manifestData);
-    const blob = new Blob([stringManifest], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blob);
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = manifestURL;
-    document.head.appendChild(link);
-  </script>
-
+  <!-- PWA Manifest & Theme -->
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ff4b2b">
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Segoe UI', Roboto, sans-serif;
       background-color: #111111;
       color: #ffffff;
       min-height: 100vh;
@@ -54,10 +21,8 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      overflow-x: hidden;
     }
 
-    /* --- 1. INSTALL SCREEN STYLING --- */
     #install-screen {
       display: flex;
       flex-direction: column;
@@ -76,18 +41,8 @@
       box-shadow: 0 8px 25px rgba(255, 75, 43, 0.3);
     }
 
-    .app-title {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    .app-desc {
-      font-size: 14px;
-      color: #aaaaaa;
-      margin-bottom: 30px;
-      line-height: 1.5;
-    }
+    .app-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+    .app-desc { font-size: 14px; color: #aaaaaa; margin-bottom: 30px; line-height: 1.5; }
 
     .btn-install {
       background: linear-gradient(135deg, #ff4b2b, #ff416c);
@@ -99,83 +54,50 @@
       border-radius: 30px;
       cursor: pointer;
       box-shadow: 0 5px 20px rgba(255, 75, 43, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
       width: 100%;
     }
 
-    .btn-install:active {
-      transform: scale(0.97);
-    }
-
-    .guide-text {
-      font-size: 12px;
-      color: #888888;
-      margin-top: 15px;
-      display: none;
-    }
-
-    /* --- 2. MAIN APP SCREEN (App Install Aana Appram thaan Theriya Varum) --- */
     #main-app {
       display: none;
       width: 100%;
       min-height: 100vh;
       padding: 20px;
-      box-sizing: border-box;
-    }
-
-    .app-header {
-      padding: 20px 0;
-      border-bottom: 1px solid #333;
-      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
 
-  <!-- SCREEN 1: Chrome / Browser-la Open Panna Idhu Mattum Kaattum -->
+  <!-- SCREEN 1: Web Browser-la Open Panna -->
   <div id="install-screen">
     <img src="https://cdn-icons-png.flaticon.com/512/1077/1077035.png" alt="App Icon" class="app-icon">
     <div class="app-title">Couple App ❤️</div>
     <div class="app-desc">Indha app-ah use panna unga mobile-la install pannanum. Keezhe irukkura button-ah press pannunga!</div>
     
     <button id="installBtn" class="btn-install">Install App</button>
-    <div id="guideText" class="guide-text">
-      Chrome Menu (⋮) press panni <b>"Add to Home Screen"</b> or <b>"Install App"</b> choose pannunga.
-    </div>
   </div>
 
-  <!-- SCREEN 2: Install Panni Mobile Home Screen-la Irundhu Open Panna Idhu Dhaan Varum -->
+  <!-- SCREEN 2: App Install Aana Appram Inside Home Screen -->
   <div id="main-app">
-    <div class="app-header">
-      <h2>Welcome Inside Couple App! 🎉</h2>
-      <p>App Install Aagiduchu! Inga unga features-ah use pannalaam.</p>
-    </div>
+    <h2>Welcome Inside Couple App! 🎉</h2>
+    <p>App Success-a Install Aagiduchu!</p>
   </div>
 
   <script>
     const installBtn = document.getElementById('installBtn');
     const installScreen = document.getElementById('install-screen');
     const mainApp = document.getElementById('main-app');
-    const guideText = document.getElementById('guideText');
     let deferredPrompt;
 
-    // Check if opening as Standalone Installed App
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-    if (isStandalone) {
+    // Standalone (Installed) Mode Check
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
       installScreen.style.display = 'none';
       mainApp.style.display = 'block';
-    } else {
-      installScreen.style.display = 'flex';
-      mainApp.style.display = 'none';
     }
 
-    // Capture install prompt
+    // Capture Browser Native Install Prompt
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installBtn.style.display = 'block';
-      guideText.style.display = 'none';
     });
 
     // Install Button Click Handler
@@ -184,24 +106,17 @@
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
-          console.log('User installed the PWA');
+          console.log('App Installed!');
         }
         deferredPrompt = null;
       } else {
-        guideText.style.display = 'block';
+        alert("Browser menu (⋮) -> 'Add to Home Screen' / 'Install App' choose pannunga bro!");
       }
     });
 
-    // Register Service Worker
+    // Service Worker Register
     if ('serviceWorker' in navigator) {
-      const swCode = `
-        self.addEventListener('install', (e) => self.skipWaiting());
-        self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-        self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
-      `;
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      const swURL = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swURL).catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   </script>
 </body>

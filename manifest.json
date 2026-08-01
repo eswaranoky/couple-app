@@ -3,7 +3,7 @@
   "short_name": "CoupleApp",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
+  "background_color": "#111111",
   "theme_color": "#ff4b2b",
   "icons": [
     {
