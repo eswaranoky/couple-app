@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="app-title-head">Our World 💖</title>
+  <title id="app-title-head">My Chat App</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#075e54">
@@ -11,98 +11,116 @@
 </head>
 <body>
 
-  <div id="install-banner" class="install-banner hidden">
-    <span>📲 Install App for Quick Access!</span>
-    <button id="install-btn">Install</button>
-  </div>
-
   <div class="app-container">
 
-    <!-- SCREEN 1: Google Login Screen -->
+    <!-- SCREEN 1: LOGIN -->
     <div id="screen-login" class="screen active">
       <div class="auth-box">
         <i class="fa-brands fa-whatsapp main-icon"></i>
-        <h2>Welcome to Our App</h2>
-        <p class="subtitle">Sign in with your Google Account to continue</p>
-        
+        <h2>Welcome</h2>
+        <p class="subtitle">Sign in with Google to continue</p>
         <button class="google-btn" onclick="loginWithGoogle()">
           <i class="fa-brands fa-google"></i> Continue with Google
         </button>
       </div>
     </div>
 
-    <!-- SCREEN 2: Partner Linking -->
-    <div id="screen-partner" class="screen">
-      <div class="auth-box">
-        <i class="fa-solid fa-heart-circle-check main-icon"></i>
-        <h2>Link Partner</h2>
-        <p class="subtitle">Enter your partner's registered Gmail address to link your room.</p>
-        <input type="email" id="partner-email" placeholder="partner@gmail.com">
-        <button onclick="linkPartner()">Connect Room 💕</button>
+    <!-- SCREEN 2: HOME SCREEN -->
+    <div id="screen-home" class="screen">
+      <div class="chat-header">
+        <h3 id="app-display-title">My Chat App</h3>
+        <div class="header-actions">
+          <i class="fa-solid fa-gear" onclick="openSettings()"></i>
+          <i class="fa-solid fa-right-from-bracket" onclick="logout()"></i>
+        </div>
+      </div>
+
+      <!-- SEARCH BAR -->
+      <div class="search-section">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="email" id="search-email-input" placeholder="Search user by Email..." onkeyup="searchUser()">
+        </div>
+        <div id="search-results" class="search-results-list hidden"></div>
+      </div>
+
+      <!-- PENDING REQUESTS -->
+      <div id="requests-section" class="requests-section hidden">
+        <h4>Friend Requests</h4>
+        <div id="requests-list"></div>
+      </div>
+
+      <!-- RECENT CHATS LIST -->
+      <div class="chat-list-section">
+        <h4>Chats</h4>
+        <div id="recent-chats-list"></div>
       </div>
     </div>
 
-    <!-- SCREEN 3: WhatsApp Style Chat UI -->
+    <!-- SCREEN 3: INDIVIDUAL CHAT ROOM -->
     <div id="screen-chat" class="screen">
       <div class="chat-header">
         <div class="user-info">
-          <img id="header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
+          <i class="fa-solid fa-arrow-left back-btn" onclick="openHome()"></i>
+          <img id="chat-header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
           <div>
-            <h4 id="header-partner-name">Partner</h4>
+            <h4 id="chat-header-name">User</h4>
             <span class="status">Online</span>
           </div>
         </div>
         <div class="header-actions">
           <i class="fa-solid fa-video call-btn" onclick="startCall('video')"></i>
           <i class="fa-solid fa-phone call-btn" onclick="startCall('voice')"></i>
-          <i class="fa-solid fa-gear" onclick="openSettings()"></i>
         </div>
       </div>
 
       <div class="chat-messages" id="chat-box"></div>
 
-      <div id="reply-preview" class="reply-preview hidden">
-        <div>
-          <small id="reply-to-user">Replying to...</small>
-          <p id="reply-to-text">Message text...</p>
-        </div>
-        <i class="fa-solid fa-xmark" onclick="cancelReply()"></i>
-      </div>
-
+      <!-- INPUT AREA WITH MEDIA, VOICE, VIEW ONCE & TEXT -->
       <div class="chat-input-area">
-        <input type="text" id="msg-input" placeholder="Type a message...">
+        <!-- Normal Photo Attach -->
+        <label for="img-attach" class="attach-btn" title="Send Image">
+          <i class="fa-solid fa-paperclip"></i>
+        </label>
+        <input type="file" id="img-attach" accept="image/*" style="display:none;" onchange="sendMediaMessage(event)">
+
+        <!-- View Once Photo Attach -->
+        <label for="viewonce-attach" class="attach-btn viewonce-btn" title="Send View Once Photo">
+          <i class="fa-solid fa-1"></i>
+        </label>
+        <input type="file" id="viewonce-attach" accept="image/*" style="display:none;" onchange="sendViewOnceMessage(event)">
+
+        <!-- Text Input -->
+        <input type="text" id="msg-input" placeholder="Type an encrypted message...">
+
+        <!-- Voice Note Record Button -->
+        <button id="voice-btn" onmousedown="startRecording()" onmouseup="stopRecording()" class="mic-btn" title="Hold to record audio">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+
+        <!-- Send Button -->
         <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
     </div>
 
-    <!-- SCREEN 4: Settings Screen -->
+    <!-- SCREEN 4: SETTINGS -->
     <div id="screen-settings" class="screen">
       <div class="settings-header">
-        <i class="fa-solid fa-arrow-left" onclick="closeSettings()"></i>
-        <h3>App & Profile Settings</h3>
+        <i class="fa-solid fa-arrow-left" onclick="openHome()"></i>
+        <h3>Settings</h3>
       </div>
       <div class="settings-body">
-        <div class="profile-pic-section">
-          <img id="settings-preview-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
-          <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" onchange="handleImageUpload(event)">
-          <button class="small-btn" onclick="document.getElementById('profile-pic-input').click()">Change Photo</button>
-        </div>
-
         <div class="input-group">
-          <label>App Title Name:</label>
-          <input type="text" id="edit-app-name" placeholder="e.g. Our Private Space">
+          <label>Custom App Name:</label>
+          <input type="text" id="edit-app-name" placeholder="e.g. My Private Space">
         </div>
-
-        <div id="lock-warning" class="lock-notice hidden">
-          ⚠️ Note: Updating profile or app name will lock further edits for <b>1 Year (365 Days)</b>.
-        </div>
-
         <button id="save-settings-btn" onclick="saveSettings()">Save Changes 🔒</button>
       </div>
     </div>
 
   </div>
 
+  <!-- FIREBASE SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>

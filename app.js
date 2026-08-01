@@ -1,4 +1,4 @@
-// Firebase Configuration
+// FIREBASE CONFIGURATION
 const firebaseConfig = {
   apiKey: "AIzaSyA_T43xxOggTqRt_1V_COQaeE-4G0Ufjms",
   authDomain: "couple-app-4816e.firebaseapp.com",
@@ -14,188 +14,371 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 let currentUserEmail = "";
-let partnerEmail = "";
-let roomId = "";
-let selectedReplyMsg = null;
-let profileBase64 = "";
+let currentActivePartner = "";
+let activeRoomId = "";
 
-// Google Login Function
+// 1. AUTO LOGIN & AUTH CHECK
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    currentUserEmail = user.email.toLowerCase();
+    db.collection('users').doc(currentUserEmail).set({
+      email: currentUserEmail,
+      displayName: user.displayName || currentUserEmail,
+      photoURL: user.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+    }, { merge: true });
+
+    openHome();
+  } else {
+    showScreen('screen-login');
+  }
+});
+
 function loginWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider)
-    .then((result) => {
-      currentUserEmail = result.user.email;
-      checkUserPartnerStatus();
-    })
-    .catch((error) => {
-      alert("Login Error: " + error.message);
-    });
+  auth.signInWithPopup(provider);
 }
 
-// Check Partner Status
-function checkUserPartnerStatus() {
-  const userDocRef = db.collection('users').doc(currentUserEmail);
-  userDocRef.get().then((doc) => {
-    if (doc.exists && doc.data().partnerEmail) {
-      partnerEmail = doc.data().partnerEmail;
-      setupChatRoom();
-    } else {
-      showScreen('screen-partner');
+function logout() {
+  auth.signOut();
+}
+
+// 2. ENCRYPTION / DECRYPTION HELPERS
+function encryptText(text) {
+  return btoa(encodeURIComponent(text));
+}
+
+function decryptText(cipher) {
+  try {
+    return decodeURIComponent(atob(cipher));
+  } catch (e) {
+    return cipher;
+  }
+}
+
+// 3. HOME SCREEN & SETTINGS
+function openHome() {
+  showScreen('screen-home');
+  loadAppSettings();
+  listenFriendRequests();
+  listenAcceptedChats();
+}
+
+function loadAppSettings() {
+  db.collection('users').doc(currentUserEmail).get().then((doc) => {
+    if (doc.exists && doc.data().appName) {
+      document.getElementById('app-display-title').innerText = doc.data().appName;
+      document.getElementById('app-title-head').innerText = doc.data().appName;
     }
   });
 }
 
-function linkPartner() {
-  const pEmail = document.getElementById('partner-email').value.trim().toLowerCase();
-  if (!pEmail || !pEmail.includes('@')) {
-    alert("Please enter a valid partner email address!");
+// 4. USER SEARCH & FRIEND REQUESTS
+function searchUser() {
+  const query = document.getElementById('search-email-input').value.trim().toLowerCase();
+  const resultsDiv = document.getElementById('search-results');
+
+  if (!query || query === currentUserEmail) {
+    resultsDiv.classList.add('hidden');
     return;
   }
 
-  partnerEmail = pEmail;
-  db.collection('users').doc(currentUserEmail).set({ partnerEmail: pEmail }, { merge: true });
-  setupChatRoom();
+  db.collection('users').where('email', '>=', query).where('email', '<=', query + '\uf8ff').get()
+    .then((snapshot) => {
+      resultsDiv.innerHTML = '';
+      if (snapshot.empty) {
+        resultsDiv.classList.add('hidden');
+        return;
+      }
+      resultsDiv.classList.remove('hidden');
+      snapshot.forEach((doc) => {
+        const u = doc.data();
+        if (u.email === currentUserEmail) return;
+
+        const div = document.createElement('div');
+        div.className = 'user-item';
+        div.innerHTML = `
+          <span>${u.email}</span>
+          <button onclick="sendFriendRequest('${u.email}')">Send Request</button>
+        `;
+        resultsDiv.appendChild(div);
+      });
+    });
 }
 
-// Chat Room Logic
-function setupChatRoom() {
-  const ids = [currentUserEmail, partnerEmail].sort();
-  roomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
+function sendFriendRequest(targetEmail) {
+  const reqId = `${currentUserEmail}_${targetEmail}`;
+  db.collection('requests').doc(reqId).set({
+    from: currentUserEmail,
+    to: targetEmail,
+    status: 'pending'
+  }).then(() => {
+    alert("Friend Request Sent!");
+    document.getElementById('search-results').classList.add('hidden');
+    document.getElementById('search-email-input').value = '';
+  });
+}
+
+function listenFriendRequests() {
+  db.collection('requests').where('to', '==', currentUserEmail).where('status', '==', 'pending')
+    .onSnapshot((snapshot) => {
+      const section = document.getElementById('requests-section');
+      const list = document.getElementById('requests-list');
+      list.innerHTML = '';
+
+      if (snapshot.empty) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      snapshot.forEach((doc) => {
+        const req = doc.data();
+        const card = document.createElement('div');
+        card.className = 'req-card';
+        card.innerHTML = `
+          <span><b>${req.from}</b></span>
+          <div class="req-btns">
+            <button class="btn-accept" onclick="respondRequest('${doc.id}', '${req.from}', true)">Accept</button>
+            <button class="btn-reject" onclick="respondRequest('${doc.id}', '${req.from}', false)">Reject</button>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    });
+}
+
+function respondRequest(reqId, fromEmail, accept) {
+  if (accept) {
+    db.collection('requests').doc(reqId).update({ status: 'accepted' });
+    db.collection('chats').doc(`${currentUserEmail}_${fromEmail}`).set({ users: [currentUserEmail, fromEmail] });
+  } else {
+    db.collection('requests').doc(reqId).delete();
+  }
+}
+
+function listenAcceptedChats() {
+  db.collection('chats').where('users', 'array-contains', currentUserEmail)
+    .onSnapshot((snapshot) => {
+      const chatList = document.getElementById('recent-chats-list');
+      chatList.innerHTML = '';
+
+      snapshot.forEach((doc) => {
+        const users = doc.data().users;
+        const partner = users.find(u => u !== currentUserEmail);
+
+        const card = document.createElement('div');
+        card.className = 'chat-card';
+        card.onclick = () => openChatRoom(partner);
+        card.innerHTML = `
+          <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+          <div>
+            <b>${partner}</b>
+            <p style="font-size:12px; color:#666;">Tap to chat</p>
+          </div>
+        `;
+        chatList.appendChild(card);
+      });
+    });
+}
+
+// 5. CHAT ROOM & READ MESSAGES (ORANGE TICK LOGIC)
+function openChatRoom(partner) {
+  currentActivePartner = partner;
+  const ids = [currentUserEmail, partner].sort();
+  activeRoomId = ids.join('_').replace(/[^a-zA-Z0-9]/g, "_");
 
   showScreen('screen-chat');
-  document.getElementById('header-partner-name').innerText = partnerEmail;
+  document.getElementById('chat-header-name').innerText = partner;
 
-  db.collection('rooms').doc(roomId).collection('messages')
+  db.collection('rooms').doc(activeRoomId).collection('messages')
     .orderBy('timestamp', 'asc')
     .onSnapshot((snapshot) => {
       const chatBox = document.getElementById('chat-box');
       chatBox.innerHTML = '';
+
       snapshot.forEach((doc) => {
-        renderMessage(doc.data());
+        const msg = doc.data();
+
+        // Opposite person mesage-a open panna "read" (Orange Tick)-a update pannum
+        if (msg.sender !== currentUserEmail && msg.status !== 'read') {
+          db.collection('rooms').doc(activeRoomId).collection('messages').doc(doc.id).update({
+            status: 'read'
+          });
+        }
+
+        renderMessage(doc.data(), doc.id);
       });
       chatBox.scrollTop = chatBox.scrollHeight;
     });
-
-  loadSettings();
 }
 
-function renderMessage(msg) {
-  const chatBox = document.getElementById('chat-box');
-  const div = document.createElement('div');
-  const isMe = msg.sender === currentUserEmail;
-  div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
-
-  let replyHtml = '';
-  if (msg.replyTo) {
-    replyHtml = `<div class="quoted-msg"><b>Reply:</b> ${msg.replyTo}</div>`;
-  }
-
-  const timeStr = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
-
-  div.innerHTML = `
-    ${replyHtml}
-    <span>${msg.text}</span>
-    <span class="msg-time">${timeStr}</span>
-  `;
-
-  div.onclick = () => {
-    selectedReplyMsg = msg.text;
-    document.getElementById('reply-preview').classList.remove('hidden');
-    document.getElementById('reply-to-text').innerText = msg.text;
-  };
-
-  chatBox.appendChild(div);
-}
-
+// 6. SEND TEXT MESSAGE
 function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if (!text) return;
 
-  const msgData = {
-    text: text,
+  db.collection('rooms').doc(activeRoomId).collection('messages').add({
+    type: 'text',
+    text: encryptText(text),
     sender: currentUserEmail,
+    status: 'sent',
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  };
+  });
+  input.value = '';
+}
 
-  if (selectedReplyMsg) {
-    msgData.replyTo = selectedReplyMsg;
+// 7. SEND IMAGE MEDIA
+function sendMediaMessage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    db.collection('rooms').doc(activeRoomId).collection('messages').add({
+      type: 'image',
+      mediaData: evt.target.result,
+      sender: currentUserEmail,
+      status: 'sent',
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+// 8. SEND VIEW ONCE PHOTO
+function sendViewOnceMessage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    db.collection('rooms').doc(activeRoomId).collection('messages').add({
+      type: 'view_once',
+      mediaData: evt.target.result,
+      isOpened: false,
+      sender: currentUserEmail,
+      status: 'sent',
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function openViewOnce(msgId, mediaData, isOpened) {
+  if (isOpened) {
+    alert("This photo has already expired!");
+    return;
+  }
+  const w = window.open("");
+  w.document.write(`<img src="${mediaData}" style="max-width:100%; height:auto;" />`);
+
+  db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).update({
+    isOpened: true,
+    mediaData: ""
+  });
+}
+
+// 9. VOICE RECORDING LOGIC
+let mediaRecorder;
+let audioChunks = [];
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    document.getElementById('voice-btn').classList.add('recording');
+    audioChunks = [];
+
+    mediaRecorder.addEventListener("dataavailable", event => {
+      audioChunks.push(event.data);
+    });
+  });
+}
+
+function stopRecording() {
+  if (!mediaRecorder) return;
+  mediaRecorder.stop();
+  document.getElementById('voice-btn').classList.remove('recording');
+
+  mediaRecorder.addEventListener("stop", () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+    const reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    reader.onloadend = () => {
+      db.collection('rooms').doc(activeRoomId).collection('messages').add({
+        type: 'audio',
+        mediaData: reader.result,
+        sender: currentUserEmail,
+        status: 'sent',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    };
+  });
+}
+
+// 10. RENDER MESSAGES WITH ORANGE TICK
+function renderMessage(msg, msgId) {
+  const chatBox = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  const isMe = msg.sender === currentUserEmail;
+  div.className = `msg-bubble ${isMe ? 'me' : 'partner'}`;
+
+  const timeStr = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+
+  // Orange Tick Generator
+  let tickHtml = '';
+  if (isMe) {
+    if (msg.status === 'read') {
+      tickHtml = `<span class="tick orange-tick"><i class="fa-solid fa-check-double"></i></span>`;
+    } else {
+      tickHtml = `<span class="tick grey-tick"><i class="fa-solid fa-check-double"></i></span>`;
+    }
   }
 
-  db.collection('rooms').doc(roomId).collection('messages').add(msgData);
-  input.value = '';
-  cancelReply();
+  // Body content render by type
+  let contentHtml = '';
+  if (msg.type === 'image') {
+    contentHtml = `<img src="${msg.mediaData}" class="chat-img" />`;
+  } else if (msg.type === 'view_once') {
+    const statusText = msg.isOpened ? "Opened Photo (Expired)" : "📷 Photo (View Once)";
+    const openedClass = msg.isOpened ? "opened" : "";
+    contentHtml = `
+      <div class="view-once-bubble ${openedClass}" onclick="openViewOnce('${msgId}', '${msg.mediaData}', ${msg.isOpened})">
+        <i class="fa-solid fa-circle-notch"></i> ${statusText}
+      </div>`;
+  } else if (msg.type === 'audio') {
+    contentHtml = `<audio controls src="${msg.mediaData}" style="max-width:200px;"></audio>`;
+  } else {
+    contentHtml = `<span>${decryptText(msg.text)}</span>`;
+  }
+
+  div.innerHTML = `
+    ${contentHtml}
+    <span class="msg-meta">
+      <span class="msg-time">${timeStr}</span>
+      ${tickHtml}
+    </span>
+  `;
+
+  chatBox.appendChild(div);
 }
 
-function cancelReply() {
-  selectedReplyMsg = null;
-  document.getElementById('reply-preview').classList.add('hidden');
-}
+// 11. NAVIGATION & SETTINGS
+function startCall(type) { alert(`Calling ${currentActivePartner} via ${type.toUpperCase()}...`); }
+function openSettings() { showScreen('screen-settings'); }
 
-function startCall(type) {
-  alert(`Initiating 1-on-1 ${type.toUpperCase()} Call with ${partnerEmail}...`);
+function saveSettings() {
+  const newName = document.getElementById('edit-app-name').value.trim();
+  if (newName) {
+    db.collection('users').doc(currentUserEmail).update({ appName: newName }).then(() => {
+      alert("App Name Updated!");
+      openHome();
+    });
+  }
 }
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-}
-
-function openSettings() { showScreen('screen-settings'); }
-function closeSettings() { showScreen('screen-chat'); }
-
-function handleImageUpload(e) {
-  const file = e.target.files[0];
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    profileBase64 = reader.result;
-    document.getElementById('settings-preview-img').src = profileBase64;
-  };
-  if (file) reader.readAsDataURL(file);
-}
-
-function loadSettings() {
-  db.collection('users').doc(currentUserEmail).get().then((doc) => {
-    if (doc.exists) {
-      const data = doc.data();
-      if (data.appName) {
-        document.getElementById('app-title-head').innerText = data.appName;
-        document.getElementById('edit-app-name').value = data.appName;
-      }
-      if (data.profilePic) {
-        document.getElementById('settings-preview-img').src = data.profilePic;
-        document.getElementById('header-avatar').src = data.profilePic;
-      }
-
-      if (data.lastUpdated) {
-        const lastDate = data.lastUpdated.toDate();
-        const now = new Date();
-        const diffDays = Math.ceil((now - lastDate) / (1000 * 60 * 60 * 24));
-        if (diffDays < 365) {
-          document.getElementById('save-settings-btn').disabled = true;
-          document.getElementById('lock-warning').classList.remove('hidden');
-          document.getElementById('lock-warning').innerHTML = `🔒 Settings Locked! Next edit available in <b>${365 - diffDays} days</b>.`;
-        }
-      }
-    }
-  });
-}
-
-function saveSettings() {
-  const newName = document.getElementById('edit-app-name').value.trim();
-  const updateData = {
-    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-  };
-  if (newName) updateData.appName = newName;
-  if (profileBase64) updateData.profilePic = profileBase64;
-
-  db.collection('users').doc(currentUserEmail).set(updateData, { merge: true }).then(() => {
-    alert("Settings Saved! 1-Year Lock Activated.");
-    loadSettings();
-    closeSettings();
-  });
-}
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
 }
