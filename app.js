@@ -21,7 +21,7 @@ let deferredPrompt;
 let currentMyStatusDocId = null;
 let currentStatusAudio = null;
 
-// HARDWARE BACK BUTTON HANDLER TO PREVENT EXITING APP ON BACK TAP
+// HARDWARE BACK BUTTON HANDLER
 window.onpopstate = function(event) {
   const currentScreen = document.querySelector('.screen.active');
   if (currentScreen && currentScreen.id !== 'screen-home' && currentScreen.id !== 'screen-login') {
@@ -29,7 +29,7 @@ window.onpopstate = function(event) {
   }
 };
 
-// PWA INSTALL EVENT LISTENER
+// PWA INSTALL EVENT
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -50,7 +50,7 @@ function installAppDirect() {
 
 function skipInstallAndGoHome() { openHome(); }
 
-// 1. AUTO LOGIN & PWA CHECK
+// 1. AUTO LOGIN & PERMISSIONS
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUserEmail = user.email.toLowerCase();
@@ -85,14 +85,60 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. HOME SCREEN & TAB SWITCHING
+// 2. REQUEST NOTIFICATION PERMISSION
+function requestNotificationPermission() {
+  if ("Notification" in window) {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        console.log("Notification permission granted!");
+      }
+    });
+  }
+}
+
+function showBackgroundPopUp(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, {
+      body: body,
+      icon: "https://cdn-icons-png.flaticon.com/512/134/134937.png",
+      vibrate: [200, 100, 200]
+    });
+  }
+}
+
+// Listen globally for incoming messages to trigger pop-up
+function listenIncomingMessagesGlobally() {
+  db.collection('chats').where('users', 'array-contains', currentUserEmail)
+    .onSnapshot(snapshot => {
+      snapshot.forEach(doc => {
+        const users = doc.data().users;
+        const partner = users.find(u => u !== currentUserEmail);
+        const roomId = users.sort().join('_').replace(/[^a-zA-Z0-9]/g, "_");
+
+        db.collection('rooms').doc(roomId).collection('messages')
+          .orderBy('timestamp', 'desc').limit(1)
+          .onSnapshot(msgSnap => {
+            msgSnap.docChanges().forEach(change => {
+              if (change.type === "added") {
+                const msg = change.doc.data();
+                if (msg.sender !== currentUserEmail && msg.status !== 'read') {
+                  showBackgroundPopUp(`New Message from ${partner.split('@')[0]}`, decryptText(msg.text) || "Sent a media file");
+                }
+              }
+            });
+          });
+      });
+    });
+}
+
+// 3. HOME SCREEN & TABS
 function openHome() {
   showScreen('screen-home');
+  requestNotificationPermission();
+  listenIncomingMessagesGlobally();
   listenFriendRequests();
   listenAcceptedChats();
   listenStatuses();
-  
-  // Push state to prevent back button from exiting app
   history.pushState({ page: 'home' }, "Home", "#home");
 }
 
@@ -222,7 +268,7 @@ function listenAcceptedChats() {
     });
 }
 
-// 3. CHAT ROOM WITH BACK-BUTTON HISTORY PUSH
+// 4. CHAT ROOM
 function openChatRoom(partner, partnerData) {
   currentActivePartner = partner;
   const ids = [currentUserEmail, partner].sort();
@@ -267,7 +313,7 @@ function editPartnerNickname() {
   }
 }
 
-// 4. MESSAGES SENDING
+// 5. MESSAGES
 function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
@@ -314,7 +360,7 @@ function sendViewOnceMessage(e) {
   });
 }
 
-// 5. STATUS LOGIC (UPLOAD, VIEW, DELETE, AUDIO SONG STATUS)
+// 6. STATUS LOGIC
 function uploadStatusPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -326,40 +372,28 @@ function uploadStatusPhoto(e) {
       content: compressedUrl,
       audioUrl: '',
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
-      alert("Status uploaded!");
-    });
+    }).then(() => { alert("Status uploaded!"); });
   });
 }
 
-function openAudioTextStatusModal() {
-  document.getElementById('audio-status-modal').classList.remove('hidden');
-}
-
-function closeAudioStatusModal() {
-  document.getElementById('audio-status-modal').classList.add('hidden');
-}
+function openAudioTextStatusModal() { document.getElementById('audio-status-modal').classList.remove('hidden'); }
+function closeAudioStatusModal() { document.getElementById('audio-status-modal').classList.add('hidden'); }
 
 function saveAudioTextStatus() {
   const textVal = document.getElementById('status-song-text').value.trim();
   const audioFile = document.getElementById('status-audio-input').files[0];
 
-  if (!textVal) {
-    alert("Please enter some text!");
-    return;
-  }
+  if (!textVal) { alert("Please enter some text!"); return; }
 
   if (audioFile) {
     const reader = new FileReader();
     reader.readAsDataURL(audioFile);
     reader.onload = function (e) {
-      const audioData = e.target.result;
-      
       db.collection('statuses').doc(currentUserEmail).set({
         userEmail: currentUserEmail,
         type: 'audio_text',
         content: textVal,
-        audioUrl: audioData,
+        audioUrl: e.target.result,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         closeAudioStatusModal();
@@ -492,7 +526,28 @@ function deleteMyStatus() {
   }
 }
 
-// 6. VIEW ONCE & HD PHOTO VIEWER
+// 7. DIRECT VIDEO & VOICE CALLS (NO LOGIN / AUTO CONNECT)
+function startCall(type) {
+  const roomId = "CallRoom_" + activeRoomId.replace(/[^a-zA-Z0-9]/g, "");
+  
+  // Params added to skip login screens and auto-join audio/video directly
+  const jitsiDomain = "meet.jit.si";
+  const jitsiConfig = `#config.startWithVideoMuted=${type === 'voice'}&config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.SHOW_JITSI_WATERMARK=false`;
+  const fullCallUrl = `https://${jitsiDomain}/${roomId}${jitsiConfig}`;
+
+  document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
+  document.getElementById('jitsi-iframe').src = fullCallUrl;
+  document.getElementById('call-modal').classList.remove('hidden');
+
+  showBackgroundPopUp(`Calling ${currentActivePartner.split('@')[0]}`, `Outgoing ${type} call initiated...`);
+}
+
+function endCall() {
+  document.getElementById('jitsi-iframe').src = "";
+  document.getElementById('call-modal').classList.add('hidden');
+}
+
+// 8. VIEW ONCE & HD PHOTO VIEWER
 function handleViewOnceClick(msgId, mediaData, isOpened, sender) {
   if (sender === currentUserEmail) return;
   if (isOpened) { alert("Photo is already expired!"); return; }
@@ -522,7 +577,7 @@ function openFullImageWindow() {
   win.document.write(`<img src="${currentViewImgUrl}" style="max-width:100%;" />`);
 }
 
-// 7. VOICE RECORDING
+// 9. VOICE RECORDING
 let mediaRecorder, audioChunks = [];
 function startRecording() {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -554,23 +609,7 @@ function stopRecording() {
   });
 }
 
-// 8. REALTIME CALLING (JITSI INTEGRATION)
-function startCall(type) {
-  const roomName = `Calling_${activeRoomId}`;
-  const domain = "meet.jit.si";
-  const jitsiUrl = `https://${domain}/${roomName}#config.startWithVideoMuted=${type === 'voice'}`;
-
-  document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
-  document.getElementById('jitsi-iframe').src = jitsiUrl;
-  document.getElementById('call-modal').classList.remove('hidden');
-}
-
-function endCall() {
-  document.getElementById('jitsi-iframe').src = "";
-  document.getElementById('call-modal').classList.add('hidden');
-}
-
-// 9. RENDER MESSAGES WITH ORANGE TICK
+// 10. RENDER MESSAGES
 function renderMessage(msg, msgId) {
   const chatBox = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -606,7 +645,7 @@ function renderMessage(msg, msgId) {
   chatBox.appendChild(div);
 }
 
-// 10. PROFILE SETTINGS UPDATE
+// 11. PROFILE SETTINGS UPDATE
 function openSettings() {
   showScreen('screen-settings');
   history.pushState({ page: 'settings' }, "Settings", "#settings");
