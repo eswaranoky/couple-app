@@ -93,7 +93,7 @@ function decryptText(cipher) {
   try { return decodeURIComponent(atob(cipher)); } catch (e) { return cipher; }
 }
 
-// 2. PEERJS NATIVE WEBRTC CALL ENGINE (NO LOGIN / NO MODERATOR RESTRICTIONS)
+// 2. PEERJS NATIVE WEBRTC CALL ENGINE (FIXED BLACK SCREEN / DUAL STREAM)
 function initPeerJS() {
   const myPeerId = currentUserEmail.replace(/[^a-zA-Z0-9]/g, "");
   peer = new Peer(myPeerId);
@@ -101,18 +101,25 @@ function initPeerJS() {
   // LISTEN FOR INCOMING CALLS
   peer.on('call', (call) => {
     currentCall = call;
-    const acceptVideo = true; // Auto accept with stream
 
-    navigator.mediaDevices.getUserMedia({ video: acceptVideo, audio: true }).then((stream) => {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
       localStream = stream;
+      
+      // Show own stream in small preview
+      const localVideo = document.getElementById('local-video-stream');
+      if (localVideo) localVideo.srcObject = stream;
+
       call.answer(stream);
 
       document.getElementById('call-type-title').innerText = "Incoming Call Connected";
       document.getElementById('call-modal').classList.remove('hidden');
 
       call.on('stream', (remoteStream) => {
-        const videoElem = document.getElementById('remote-video-stream');
-        if (videoElem) videoElem.srcObject = remoteStream;
+        const remoteVideo = document.getElementById('remote-video-stream');
+        if (remoteVideo) {
+          remoteVideo.srcObject = remoteStream;
+          remoteVideo.play().catch(e => console.log("Auto-play error:", e));
+        }
       });
     }).catch(err => {
       alert("Microphone/Camera permission required!");
@@ -128,6 +135,11 @@ function startCall(type) {
 
   navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true }).then((stream) => {
     localStream = stream;
+    
+    // Show own stream in small preview
+    const localVideo = document.getElementById('local-video-stream');
+    if (localVideo) localVideo.srcObject = stream;
+
     document.getElementById('call-type-title').innerText = `${type.toUpperCase()} Call Active`;
     document.getElementById('call-modal').classList.remove('hidden');
 
@@ -135,8 +147,11 @@ function startCall(type) {
     currentCall = call;
 
     call.on('stream', (remoteStream) => {
-      const videoElem = document.getElementById('remote-video-stream');
-      if (videoElem) videoElem.srcObject = remoteStream;
+      const remoteVideo = document.getElementById('remote-video-stream');
+      if (remoteVideo) {
+        remoteVideo.srcObject = remoteStream;
+        remoteVideo.play().catch(e => console.log("Auto-play error:", e));
+      }
     });
   }).catch(err => {
     alert("Camera/Mic permission needed for call!");
@@ -398,7 +413,7 @@ function editPartnerNickname() {
   }
 }
 
-// 6. SENDING MESSAGES
+// 6. SENDING & DELETING MESSAGES
 function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
@@ -443,6 +458,20 @@ function sendViewOnceMessage(e) {
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
   });
+}
+
+function deleteMessage(msgId, senderEmail) {
+  if (senderEmail !== currentUserEmail) {
+    alert("You can only delete your own messages!");
+    return;
+  }
+  if (confirm("Delete this message?")) {
+    db.collection('rooms').doc(activeRoomId).collection('messages').doc(msgId).delete().then(() => {
+      // Message deleted successfully
+    }).catch(err => {
+      alert("Error deleting message");
+    });
+  }
 }
 
 // 7. STATUS LOGIC
@@ -673,7 +702,7 @@ function stopRecording() {
   });
 }
 
-// 10. RENDER MESSAGES WITH ORANGE TICKS
+// 10. RENDER MESSAGES WITH DELETE OPTION & TICKS
 function renderMessage(msg, msgId) {
   const chatBox = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -705,7 +734,13 @@ function renderMessage(msg, msgId) {
     contentHtml = `<span>${decryptText(msg.text)}</span>`;
   }
 
-  div.innerHTML = `${contentHtml}<span class="msg-meta"><span class="msg-time">${timeStr}</span>${tickHtml}</span>`;
+  // Delete button for user's own messages
+  let deleteHtml = '';
+  if (isMe) {
+    deleteHtml = `<i class="fa-solid fa-trash msg-delete-btn" onclick="deleteMessage('${msgId}', '${msg.sender}')" title="Delete Message" style="margin-left: 8px; font-size: 11px; color: #888; cursor: pointer;"></i>`;
+  }
+
+  div.innerHTML = `${contentHtml}<span class="msg-meta"><span class="msg-time">${timeStr}</span>${tickHtml}${deleteHtml}</span>`;
   chatBox.appendChild(div);
 }
 

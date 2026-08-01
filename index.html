@@ -244,14 +244,17 @@
       </div>
     </div>
 
-    <!-- CALL MODAL (NATIVE WEBRTC CALL WINDOW) -->
+    <!-- CALL MODAL (NATIVE WEBRTC CALL WINDOW WITH DUAL VIDEO STREAMS) -->
     <div id="call-modal" class="modal hidden">
       <div class="modal-header">
         <span id="call-type-title">Call Active</span>
         <span class="close-modal" onclick="endCall()">&times;</span>
       </div>
-      <div class="modal-body call-container" id="video-wrapper">
-        <video id="remote-video-stream" autoplay playsinline style="width:100%; height:100%; object-fit:cover; border-radius:12px; background:#000;"></video>
+      <div class="modal-body call-container" id="video-wrapper" style="position:relative; background:#000; display:flex; justify-content:center; align-items:center;">
+        <!-- Remote Video (Partner) -->
+        <video id="remote-video-stream" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;"></video>
+        <!-- Local Video (Self Preview in corner) -->
+        <video id="local-video-stream" autoplay playsinline muted style="width:110px; height:150px; object-fit:cover; position:absolute; bottom:20px; right:20px; border-radius:10px; border:2px solid white; z-index:10; background:#222;"></video>
       </div>
     </div>
 
